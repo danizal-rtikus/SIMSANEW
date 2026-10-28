@@ -39,7 +39,13 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: 'Terjadi kesalahan pada server' });
 });
 
-app.listen(env.port, async () => {
-  console.log(`[SIMSA] server berjalan di http://localhost:${env.port}`);
-  printCheck(await checkSupabase());
-});
+// Di Vercel, aplikasi dijalankan sebagai Vercel Function lewat export default;
+// di komputer sendiri / server biasa, aplikasi mendengarkan port.
+if (!process.env.VERCEL) {
+  app.listen(env.port, async () => {
+    console.log(`[SIMSA] server berjalan di http://localhost:${env.port}`);
+    printCheck(await checkSupabase());
+  });
+}
+
+export default app;
