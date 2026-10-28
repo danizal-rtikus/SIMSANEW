@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { env } from './env.js';
 
 // Klien service role: melewati RLS. Hanya dipakai di server, jangan pernah dikirim ke frontend.
-export const admin = createClient(env.supabaseUrl, env.serviceRoleKey, {
+export const admin = createClient(env.supabaseUrl || 'https://belum-diisi.supabase.co', env.serviceRoleKey || 'belum-diisi', {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 

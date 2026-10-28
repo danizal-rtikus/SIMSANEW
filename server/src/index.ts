@@ -15,7 +15,7 @@ app.use(express.json({ limit: '5mb' }));
 
 app.get('/api/health', async (_req, res) => {
   const c = await checkSupabase();
-  res.json({ ok: true, service: 'simsa-server', time: new Date().toISOString(), supabase: { ok: c.ok, problems: c.problems } });
+  res.json({ ok: true, service: 'simsa-server', time: new Date().toISOString(), corsOrigin: env.corsOrigin, supabase: { ok: c.ok, problems: c.problems } });
 });
 
 app.use('/api/admin', adminRouter);

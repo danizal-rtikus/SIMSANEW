@@ -22,6 +22,8 @@ export async function checkSupabase(): Promise<CheckResult> {
   const url = env.supabaseUrl;
   const key = env.serviceRoleKey;
 
+  if (!url) problems.push('SUPABASE_URL belum diisi (di Vercel: Settings > Environment Variables, lalu Redeploy).');
+  if (!key) problems.push('SUPABASE_SERVICE_ROLE_KEY belum diisi (di Vercel: Settings > Environment Variables, lalu Redeploy).');
   const m = url.match(/^https:\/\/([a-z0-9]+)\.supabase\.co\/?$/);
   const urlRef = m?.[1] ?? null;
   if (!m) problems.push(`SUPABASE_URL tidak berformat https://<ref>.supabase.co (sekarang: "${url}")`);
