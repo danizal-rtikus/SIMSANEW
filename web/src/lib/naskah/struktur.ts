@@ -187,6 +187,7 @@ export function initialDoc(jenjang: 'S1' | 'D3'): PmNode {
     }
   }
   content.push(h(1, 'DAFTAR PUSTAKA', false));
+  content.push({ type: 'bibliography' });
   content.push(p());
   return { type: 'doc', content };
 }

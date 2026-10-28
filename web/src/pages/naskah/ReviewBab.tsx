@@ -19,6 +19,9 @@ import { IconArrowLeft } from '../../components/Icons';
 import { imageView } from './Naskah';
 import { CommentPanel } from './CommentPanel';
 import { DiffView } from './DiffView';
+import { citedIds, loadCiteStyle, loadReferences } from '../../lib/pustaka/data';
+import type { Reference } from '../../lib/pustaka/csl';
+import type { CiteStyle } from '../../lib/pustaka/format';
 
 type Tab = 'naskah' | 'perubahan';
 
@@ -34,10 +37,14 @@ export function ReviewBab() {
     if (!thesis || !sub) throw new Error('Pengajuan tidak ditemukan atau Anda tidak berhak melihatnya');
     const s = sub as unknown as ChapterSubmission & { konten: PmNode };
     const prevMeta = data.submissions.filter((x) => x.bab === s.bab && x.nomor < s.nomor && x.status !== 'ditarik').pop() ?? null;
-    const [prev, mhs, approvals] = await Promise.all([
+    const [prev, mhs, approvals, refs, gaya, full] = await Promise.all([
       prevMeta ? must(supabase.from('chapter_submissions').select('konten').eq('id', prevMeta.id).single()) : Promise.resolve(null),
       must(supabase.from('profiles').select('nama, nim').eq('id', thesis.mahasiswa_id).maybeSingle()),
       s.milestone_id ? must(supabase.from('milestone_approvals').select('dosen_id, peran, created_at').eq('milestone_id', s.milestone_id)) : Promise.resolve([]),
+      loadReferences(thesisId!).catch(() => [] as Reference[]),
+      loadCiteStyle(thesis.prodi_id),
+      // Urutan sitasi naskah lengkap, agar nomor IEEE di potongan bab sama dengan naskah.
+      supabase.from('thesis_manuscripts').select('konten').eq('thesis_id', thesisId!).maybeSingle().then((r) => (r.data as { konten: PmNode } | null)?.konten ?? null),
     ]);
     return {
       thesis,
@@ -47,6 +54,7 @@ export function ReviewBab() {
       mhs: mhs as { nama: string; nim: string | null } | null,
       approvals: approvals as { dosen_id: string; peran: 'P1' | 'P2'; created_at: string }[],
       data,
+      pustaka: { refs, style: gaya.style, order: citedIds(full) },
     };
   }, [thesisId, submissionId]);
 
@@ -69,6 +77,7 @@ interface Loaded {
   mhs: { nama: string; nim: string | null } | null;
   approvals: { dosen_id: string; peran: 'P1' | 'P2'; created_at: string }[];
   data: ReviewData;
+  pustaka: { refs: Reference[]; style: CiteStyle; order: string[] };
 }
 
 function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
@@ -108,6 +117,9 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
 
   const extensions = useMemo(() => naskahExtensions({ imageView, babAwal: sub.bab, onCommentClick: (id) => setActiveId(id) }), [sub.bab]);
   const editor = useEditor({ extensions, content: sub.konten, editable: false, immediatelyRender: true, editorProps: { attributes: { class: 'nk-doc', lang: 'id' } } }, [sub.id]);
+  useEffect(() => {
+    if (editor) editor.commands.setPustaka(d.pustaka.refs, d.pustaka.style, d.pustaka.order);
+  }, [editor, d.pustaka]);
 
   const anchored = useMemo(() => {
     if (!editor) return { marks: [], orphans: new Set<string>() };

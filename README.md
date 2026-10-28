@@ -28,7 +28,8 @@ Di Supabase Dashboard buka **SQL Editor**, lalu jalankan berkas berikut **beruru
 7. `supabase/migrations/20261028000700_naskah.sql` (naskah daring: editor, versi, gambar naskah)
 8. `supabase/migrations/20261028000800_review_bab.sql` (pengajuan bab, review dosen, komentar, Track Changes)
 9. `supabase/migrations/20261028000900_review_dua_pembimbing.sql` (review oleh dua pembimbing secara paralel, kirim komentar tanpa keputusan)
-10. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
+10. `supabase/migrations/20261028001000_pustaka.sql` (pustaka rujukan naskah untuk sitasi dan daftar pustaka otomatis)
+11. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
 
 Atau jalankan satu berkas `supabase/setup_lengkap.sql` (gabungan semua di atas) pada proyek kosong.
 
@@ -116,6 +117,17 @@ Menu **Naskah** (mahasiswa) dan menu konteks **Naskah** saat dosen membuka mahas
 - Gambar naskah disimpan di bucket privat `naskah`. Mahasiswa yang menjaga format sendiri tetap dapat mengunggah file Word di tab Draf.
 - Dosen dan pihak lain hanya dapat membaca isi naskah.
 - **Impor dari Word** (.docx) untuk seluruh naskah, satu bab, atau bab baru: judul bab (pola "BAB I", style Heading), subbab "1.1", daftar, tabel, gambar, dan keterangan dibawa; sampul dan halaman awal dapat diabaikan.
+
+### Sitasi dan daftar pustaka
+
+Tombol **Sitasi** di toolbar dan panel **Pustaka** di editor naskah. Rujukan disimpan per studi akhir dalam format CSL-JSON (tabel `thesis_references`), dan gaya sitasi mengikuti isian *Gaya sitasi* pada pedoman aktif prodi (mengandung "IEEE" berarti IEEE, selain itu APA 7).
+
+- Tambah rujukan lewat **DOI** (metadata dari Crossref, cadangan doi.org), **Cari judul** (pencarian Crossref), **Impor BibTeX/RIS** (ekspor Mendeley, Zotero, Google Scholar), atau **Isi manual**. DOI yang sama tidak dapat masuk dua kali.
+- Sitasi disisipkan sebagai elemen tersendiri: satu atau beberapa rujukan, nomor halaman untuk kutipan langsung, dan bentuk naratif APA (Lestari et al. (2024)). Klik sitasi untuk mengubah atau menghapusnya.
+- Teks sitasi dan daftar pustaka dihitung ulang otomatis: urutan nomor IEEE mengikuti kemunculan pertama, pembeda tahun APA (2024a, 2024b) dibuat sendiri. Daftar pustaka disisipkan di bawah judul DAFTAR PUSTAKA (naskah baru sudah memuatnya).
+- Panel Pustaka menampilkan jumlah rujukan, persentase terbitan 10 tahun terakhir dan jurnal, serta rujukan yang belum dikutip, tanpa tahun, tanpa penulis, ganda, atau sitasi yang rujukannya sudah dihapus.
+- Ekspor DOCX dan cetak memuat teks sitasi dan daftar pustaka dengan inden gantung. Dosen melihat sitasi yang sama pada halaman review bab.
+- Hanya mahasiswa pemilik yang dapat mengubah pustaka; pembimbing dan pihak lain yang berhak melihat studi akhir dapat membaca.
 
 ### Review per bab
 

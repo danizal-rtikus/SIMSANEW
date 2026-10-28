@@ -486,19 +486,19 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; }
 /* ---------- Dialog dan toast ---------- */
 .overlay {
   position: fixed; inset: 0; background: rgba(15, 22, 40, .45); z-index: 100;
-  display: grid; place-items: center; padding: 16px;
+  display: grid; place-items: center; grid-template-columns: minmax(0, 1fr); padding: 16px;
   animation: fade .12s ease-out;
 }
 .dialog {
   background: var(--surface); border-radius: var(--r-lg); box-shadow: var(--shadow);
-  width: 100%; max-width: 520px; max-height: calc(100vh - 32px); display: flex; flex-direction: column;
+  width: 100%; min-width: 0; max-width: 520px; max-height: calc(100vh - 32px); display: flex; flex-direction: column;
   border: 1px solid var(--line);
   animation: rise .14s ease-out;
 }
 .dialog.wide { max-width: 760px; }
 .dialog-head { padding: 18px 20px 0; }
 .dialog-title { font-family: var(--font-title); font-size: 20px; font-weight: 700; }
-.dialog-body { padding: 14px 20px; overflow-y: auto; }
+.dialog-body { padding: 14px 20px; overflow-y: auto; min-width: 0; }
 .dialog-foot { padding: 14px 20px 18px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
 @keyframes fade { from { opacity: 0; } }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
@@ -828,3 +828,73 @@ mark { background: var(--warn-soft); color: inherit; padding: 0 2px; border-radi
   .nk-comments-foot { position: sticky; bottom: 0; z-index: 4; border-radius: 0 0 var(--r-lg) var(--r-lg); }
   .nk-decide-card { position: sticky; bottom: 0; top: auto; z-index: 4; box-shadow: 0 -6px 12px -10px rgba(0,0,0,.25); }
 }
+
+/* ---------- Sitasi dan daftar pustaka ---------- */
+.nk-doc .nk-cite { border-radius: 3px; cursor: default; }
+.nk-doc[contenteditable='true'] .nk-cite { cursor: pointer; text-decoration: underline dotted var(--ink-3); text-underline-offset: 3px; }
+.nk-doc[contenteditable='true'] .nk-cite:hover { background: var(--almamater-soft); }
+.nk-doc .nk-cite.selected { background: var(--almamater-soft); outline: 1px solid var(--almamater); }
+.nk-doc .nk-cite.broken { color: var(--bad); text-decoration: underline wavy var(--bad); text-underline-offset: 3px; }
+.nk-doc .nk-bib { margin: 4px 0 12px; border-radius: 4px; }
+.nk-doc .nk-bib.selected { outline: 1px solid var(--almamater); outline-offset: 4px; }
+.nk-doc .nk-bib p { text-indent: 0; text-align: left; }
+.nk-doc .nk-bib .nk-bib-item { padding-left: 1.27cm; text-indent: -1.27cm; line-height: 1.2; margin: 0 0 12pt; }
+.nk-doc .nk-bib.ieee .nk-bib-item { display: grid; grid-template-columns: 1.27cm minmax(0, 1fr); padding-left: 0; text-indent: 0; }
+.nk-doc .nk-bib-empty { font-family: var(--font-ui); font-size: 12.5px; color: var(--ink-3); border: 1px dashed var(--line-strong); border-radius: var(--r); padding: 10px 12px; }
+
+.nk-pustaka .nk-pk-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--ink-2); }
+.nk-pustaka .nk-pk-stats b { color: var(--ink); font-weight: 600; }
+.nk-pk-issues { list-style: none; margin: 0; padding: 6px 12px 10px; display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--line); }
+.nk-pk-issues li { padding-left: 10px; border-left: 2px solid var(--line-strong); color: var(--ink-2); }
+.nk-pk-issues li.hilang, .nk-pk-issues li.duplikat { border-left-color: var(--bad); }
+.nk-pk-issues li.tidak-dikutip, .nk-pk-issues li.tanpa-tahun, .nk-pk-issues li.tanpa-penulis { border-left-color: var(--warn); }
+.nk-pk-list { list-style: none; margin: 0; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.nk-pk-item { border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px; background: var(--surface); }
+.nk-pk-item.uncited { border-style: dashed; }
+.nk-pk-top { display: flex; align-items: center; gap: 6px; }
+.nk-pk-top .muted { flex: 1; min-width: 0; }
+.nk-pk-num { font-weight: 600; font-size: 12.5px; }
+.nk-pk-text { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.nk-pk-foot { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.nk-pk-foot .btn { justify-content: center; }
+.nk-pk-foot .link-btn { align-self: center; }
+
+.nk-cite-body { padding-top: 14px; display: flex; flex-direction: column; gap: 12px; min-height: 300px; }
+.nk-cite-search { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-strong); border-radius: var(--r); padding: 0 10px; color: var(--ink-3); background: var(--surface); }
+.nk-cite-search input { border: 0; outline: 0; background: none; flex: 1; padding: 8px 0; font: inherit; color: var(--ink); }
+.nk-cite-search:focus-within { border-color: var(--focus); }
+.nk-cite-pick { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--r); }
+.nk-cite-pick li + li { border-top: 1px solid var(--line); }
+.nk-cite-pick label { display: flex; gap: 10px; padding: 8px 10px; cursor: pointer; align-items: flex-start; }
+.nk-cite-pick label:hover { background: var(--surface-2); }
+.nk-cite-pick label.on { background: var(--almamater-soft); }
+.nk-cite-pick input { margin-top: 3px; flex: none; }
+.nk-cite-pick .strong { display: block; font-size: 13px; }
+.nk-cite-ref { display: block; color: var(--ink-2); line-height: 1.4; overflow-wrap: anywhere; }
+.nk-cite-opts { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+.nk-cite-opts p { flex: 1; min-width: 200px; margin: 0 0 6px; }
+.nk-cite-row { display: flex; gap: 8px; }
+.nk-cite-row input { flex: 1; min-width: 0; }
+.nk-cite-preview { border: 1px solid var(--line); border-left: 3px solid var(--almamater); border-radius: var(--r); padding: 10px 12px; background: var(--surface-2); }
+.nk-cite-preview p { margin: 4px 0 0; line-height: 1.5; overflow-wrap: anywhere; }
+.nk-cite-hits { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r); max-height: 360px; overflow-y: auto; }
+.nk-cite-hits li { display: flex; gap: 12px; padding: 10px 12px; align-items: flex-start; }
+.nk-cite-hits li + li { border-top: 1px solid var(--line); }
+.nk-cite-hit-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.nk-cite-hit-title { all: unset; cursor: pointer; font-weight: 600; font-size: 13.5px; line-height: 1.35; }
+.nk-cite-hit-title:hover { text-decoration: underline; }
+.nk-cite-hit-title:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.nk-cite-paste { width: 100%; min-height: 140px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+.nk-cite-mini { list-style: none; margin: 0; padding: 8px 10px; max-height: 180px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--r); display: flex; flex-direction: column; gap: 4px; }
+.nk-ref-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.nk-ref-form .span2, .nk-ref-form .field:nth-child(2) { grid-column: 1 / -1; }
+@media (max-width: 640px) {
+  .nk-ref-form { grid-template-columns: 1fr; }
+  .nk-cite-row { flex-direction: column; }
+}
+@media print {
+  body.nk-printing .nk-doc .nk-cite { text-decoration: none; color: inherit; background: none; outline: 0; }
+  body.nk-printing .nk-doc .nk-bib-empty { display: none; }
+}
+.nk-cite-check { display: flex; gap: 8px; align-items: flex-start; flex-basis: 100%; cursor: pointer; }
+.nk-cite-check input { margin-top: 3px; }

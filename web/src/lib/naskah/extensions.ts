@@ -16,6 +16,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PmNodeType } from '@tiptap/pm/model';
 import { analyzeBlocks } from './struktur';
+import { Bibliography, Citation } from './citation';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -312,7 +313,13 @@ export function currentCommentRanges(state: any): Map<string, { from: number; to
 
 /** Daftar ekstensi naskah. `imageView` disuntikkan dari komponen React agar modul ini bebas React. */
 export function naskahExtensions(
-  opts: { placeholder?: string; imageView?: Parameters<typeof NaskahImage.extend>[0]; babAwal?: number; onCommentClick?: (id: string) => void } = {},
+  opts: {
+    placeholder?: string;
+    imageView?: Parameters<typeof NaskahImage.extend>[0];
+    babAwal?: number;
+    onCommentClick?: (id: string) => void;
+    onCitationClick?: (pos: number, attrs: { refs: string[]; halaman: string | null; naratif: boolean }) => void;
+  } = {},
 ): Extensions {
   return [
     StarterKit.configure({
@@ -344,5 +351,8 @@ export function naskahExtensions(
     BlockIndent,
     Numbering.configure({ babAwal: opts.babAwal ?? 1 }),
     CommentHighlights.configure({ onClick: opts.onCommentClick }),
+    // configure() membuat instans baru, sehingga tiap editor punya penyimpanan pustaka sendiri.
+    Citation.configure({ onClick: opts.onCitationClick }),
+    Bibliography,
   ];
 }

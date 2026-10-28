@@ -14,6 +14,9 @@ import { analyzeBlocks, countWords, initialDoc, type PmNode } from '../../lib/na
 import { anchorComments, babState, loadReviewData, threads } from '../../lib/naskah/review';
 import { CommentPanel } from './CommentPanel';
 import { AjukanBabModal, ImportWordModal } from './NaskahDialogs';
+import { CiteDialog, PustakaPanel, usePustaka, type CiteMode } from './Pustaka';
+import type { CiteStyle } from '../../lib/pustaka/format';
+import type { Reference } from '../../lib/pustaka/csl';
 import type { ResolvedImage } from '../../lib/naskah/docx';
 import type { Thesis } from '../../lib/types';
 import { Badge, Button, Empty, ErrorNote, Loading, Panel } from '../../components/ui';
@@ -24,6 +27,7 @@ import {
   IconAlignJustify,
   IconAlignLeft,
   IconAlignRight,
+  IconBook,
   IconDownload,
   IconHistory,
   IconImage,
@@ -225,7 +229,16 @@ function NaskahWorkspace({
   const toast = useToast();
   const { userId } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const extensions = useMemo(() => naskahExtensions({ imageView, onCommentClick: (id) => setActiveId(id) }), []);
+  const [citeMode, setCiteMode] = useState<CiteMode | null>(null);
+  const extensions = useMemo(
+    () =>
+      naskahExtensions({
+        imageView,
+        onCommentClick: (id) => setActiveId(id),
+        onCitationClick: (pos, a) => setCiteMode({ kind: 'edit', pos, ...a }),
+      }),
+    [],
+  );
   const editor = useEditor({
     extensions,
     content: initial,
@@ -234,6 +247,12 @@ function NaskahWorkspace({
     shouldRerenderOnTransaction: true,
     editorProps: { attributes: { class: 'nk-doc', 'aria-label': 'Isi naskah', lang: 'id', spellcheck: 'false' } },
   });
+
+  /* ---------- pustaka dan sitasi ---------- */
+  const pk = usePustaka(thesis.id, thesis.prodi_id);
+  useEffect(() => {
+    if (editor && pk.refs) editor.commands.setPustaka(pk.refs, pk.style);
+  }, [editor, pk.refs, pk.style]);
 
   /* ---------- simpan otomatis ---------- */
   const revRef = useRef<number | null>(revisi);
@@ -346,6 +365,7 @@ function NaskahWorkspace({
         tahun: new Date().getFullYear(),
         logo: await loadImage(BRAND.logo).catch(() => null),
         resolveImage: async (path) => loadImage(await signedUrl(path)),
+        pustaka: pk.refs ? { refs: pk.refs, style: pk.style } : null,
       });
       const blob = await Packer.toBlob(doc);
       const a = document.createElement('a');
@@ -391,7 +411,9 @@ function NaskahWorkspace({
   const commentList = useMemo(() => threads((rv.data?.comments ?? []).filter((c) => c.terkirim)), [rv.data]);
   const activeCount = commentList.filter((t) => t.root.status !== 'selesai').length;
   const [showComments, setShowComments] = useState<boolean | null>(null);
-  const commentsVisible = showComments ?? activeCount > 0;
+  const [pustakaOpen, setPustakaOpen] = useState(false);
+  const commentsVisible = !pustakaOpen && (showComments ?? activeCount > 0);
+  const sideVisible = (commentsVisible || pustakaOpen) && !viewing;
   const nomorPengajuan = useMemo(() => new Map<string, number>((rv.data?.submissions ?? []).map((x) => [x.id, x.nomor])), [rv.data]);
   const [orphans, setOrphans] = useState<Set<string>>(new Set());
 
@@ -464,8 +486,17 @@ function NaskahWorkspace({
               Ajukan bab
             </Button>
           )}
+          <Button onClick={() => setPustakaOpen(!pustakaOpen)} aria-pressed={pustakaOpen}>
+            <IconBook size={16} /> Pustaka{pk.refs?.length ? ` (${pk.refs.length})` : ''}
+          </Button>
           {commentList.length > 0 && (
-            <Button onClick={() => setShowComments(!commentsVisible)} aria-pressed={commentsVisible}>
+            <Button
+              onClick={() => {
+                setPustakaOpen(false);
+                setShowComments(!commentsVisible);
+              }}
+              aria-pressed={commentsVisible}
+            >
               Catatan dosen{activeCount ? ` (${activeCount})` : ''}
             </Button>
           )}
@@ -487,7 +518,7 @@ function NaskahWorkspace({
         <SubmissionStrip data={rv.data} thesisId={thesis.id} userId={userId} />
       )}
 
-      <div className={`nk-body ${commentsVisible && !viewing ? 'with-comments' : ''}`}>
+      <div className={`nk-body ${sideVisible ? 'with-comments' : ''}`}>
         <aside className="nk-outline" aria-label="Struktur naskah">
           <div className="nk-outline-title">Struktur</div>
           <ul>
@@ -506,11 +537,14 @@ function NaskahWorkspace({
         </aside>
 
         <div className="nk-main">
-          {canEdit && !viewing && <Toolbar editor={editor} thesisId={thesis.id} />}
+          {canEdit && !viewing && <Toolbar editor={editor} thesisId={thesis.id} onCite={() => setCiteMode({ kind: 'insert' })} />}
           <div className="nk-paper-wrap">
-            {viewing ? <ReadOnlyDoc konten={viewing.konten} /> : <EditorContent editor={editor} className="nk-paper" />}
+            {viewing ? <ReadOnlyDoc konten={viewing.konten} refs={pk.refs} style={pk.style} /> : <EditorContent editor={editor} className="nk-paper" />}
           </div>
         </div>
+        {pustakaOpen && !viewing && pk.refs && (
+          <PustakaPanel editor={editor} refs={pk.refs} style={pk.style} canEdit={canEdit} onRefs={pk.setRefs} onAdd={() => setCiteMode({ kind: 'add' })} />
+        )}
         {commentsVisible && !viewing && rv.data && (
           <CommentPanel
             list={commentList}
@@ -538,6 +572,24 @@ function NaskahWorkspace({
           onDone={() => {
             setAjukanOpen(false);
             rv.reload();
+          }}
+        />
+      )}
+      {canEdit && pk.refs && (
+        <CiteDialog
+          mode={citeMode}
+          onClose={() => setCiteMode(null)}
+          thesisId={thesis.id}
+          refs={pk.refs}
+          style={pk.style}
+          onRefs={pk.setRefs}
+          onInsert={(c) => {
+            editor.chain().focus().insertCitation(c).run();
+            setCiteMode(null);
+          }}
+          onUpdate={(pos, c) => {
+            editor.chain().focus().updateCitationAt(pos, c).run();
+            setCiteMode(null);
           }}
         />
       )}
@@ -599,9 +651,12 @@ function SaveBadge({ state, savedAt, onRetry }: { state: SaveState | null; saved
   return <span className={`nk-save ${state}`}>{map[state]}</span>;
 }
 
-function ReadOnlyDoc({ konten }: { konten: PmNode }) {
+function ReadOnlyDoc({ konten, refs, style }: { konten: PmNode; refs: Reference[] | null; style: CiteStyle }) {
   const extensions = useMemo(() => naskahExtensions({ imageView }), []);
   const editor = useEditor({ extensions, content: konten, editable: false, immediatelyRender: true, editorProps: { attributes: { class: 'nk-doc' } } }, [konten]);
+  useEffect(() => {
+    if (editor && refs) editor.commands.setPustaka(refs, style);
+  }, [editor, refs, style]);
   return <EditorContent editor={editor} className="nk-paper" />;
 }
 
@@ -682,7 +737,7 @@ function TB({ on, title, onClick, disabled, children }: { on?: boolean; title: s
   );
 }
 
-function Toolbar({ editor: e, thesisId }: { editor: Editor; thesisId: string }) {
+function Toolbar({ editor: e, thesisId, onCite }: { editor: Editor; thesisId: string; onCite: () => void }) {
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -839,6 +894,11 @@ function Toolbar({ editor: e, thesisId }: { editor: Editor; thesisId: string }) 
         </TB>
         <TB title="Halaman baru (Ctrl+Enter)" onClick={() => e.chain().focus().setPageBreak().run()}>
           <IconPageBreak size={16} />
+        </TB>
+      </div>
+      <div className="nk-tb-group">
+        <TB title="Sisipkan sitasi dari pustaka" onClick={onCite}>
+          <span className="nk-tb-text">Sitasi</span>
         </TB>
         <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(ev) => onFile(ev.target.files?.[0])} />
       </div>

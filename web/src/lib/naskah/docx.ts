@@ -27,6 +27,8 @@ import {
   type ParagraphChild,
 } from 'docx';
 import { analyze, nodeText, type PmNode } from './struktur';
+import { buildContext, formatBibliography, formatCitation, type CiteContext, type CiteStyle, type RefLike } from '../pustaka/format';
+import { citedIds } from '../pustaka/cited';
 
 export interface ResolvedImage {
   data: ArrayBuffer | Uint8Array;
@@ -46,6 +48,8 @@ export interface DocxInput {
   tahun: number;
   logo?: ResolvedImage | null;
   resolveImage?: (path: string) => Promise<ResolvedImage | null>;
+  /** Pustaka untuk teks sitasi dan daftar pustaka otomatis. */
+  pustaka?: { refs: RefLike[]; style: CiteStyle } | null;
 }
 
 const FONT = 'Times New Roman';
@@ -67,9 +71,17 @@ interface Ctx {
   images: Map<string, ResolvedImage | null>;
 }
 
+/** Konteks sitasi selama satu ekspor berjalan. */
+let CITE: CiteContext | null = null;
+
 function runs(nodes: PmNode[] | undefined, extra: { bold?: boolean } = {}): ParagraphChild[] {
   const out: ParagraphChild[] = [];
   for (const n of nodes ?? []) {
+    if (n.type === 'citation') {
+      const text = CITE ? formatCitation((n.attrs?.refs as string[]) ?? [], CITE, n.attrs?.halaman as string | null, !!n.attrs?.naratif) : '';
+      if (text) out.push(new TextRun({ text, bold: extra.bold || undefined }));
+      continue;
+    }
     if (n.type === 'hardBreak') {
       out.push(new TextRun({ text: '', break: 1 }));
       continue;
@@ -288,6 +300,9 @@ async function bodyBlocks(ctx: Ctx): Promise<(Paragraph | Table | TableOfContent
       case 'pageBreak':
         breakNext = true;
         break;
+      case 'bibliography':
+        out.push(...bibliographyParagraphs());
+        break;
       default: {
         const t = nodeText(n);
         if (t) out.push(new Paragraph({ children: [new TextRun(t)] }));
@@ -295,6 +310,24 @@ async function bodyBlocks(ctx: Ctx): Promise<(Paragraph | Table | TableOfContent
     }
   }
   return out;
+}
+
+/** Daftar pustaka: spasi 1 di dalam entri, jarak antarentri, inden gantung 1,27 cm. */
+function bibliographyParagraphs(): Paragraph[] {
+  if (!CITE) return [];
+  const list = formatBibliography([...CITE.byId.values()], CITE);
+  return list.map(
+    (e) =>
+      new Paragraph({
+        alignment: AlignmentType.LEFT,
+        indent: { left: 720, hanging: 720 },
+        spacing: { lineRule: LineRuleType.AUTO, line: LINE_1, after: 240 },
+        children: [
+          ...(e.num ? [new TextRun({ text: `[${e.num}]` }), new TextRun({ text: '\t' })] : []),
+          ...e.segs.map((sg) => new TextRun({ text: sg.t, italics: sg.i || undefined })),
+        ],
+      }),
+  );
 }
 
 function coverPage(input: DocxInput): Paragraph[] {
@@ -339,7 +372,13 @@ function footer() {
 
 export async function buildDocx(input: DocxInput): Promise<Document> {
   const ctx: Ctx = { input, listInstance: 0, images: new Map() };
-  const body = await bodyBlocks(ctx);
+  CITE = input.pustaka ? buildContext(input.pustaka.refs, input.pustaka.style, citedIds(input.doc)) : null;
+  let body: Awaited<ReturnType<typeof bodyBlocks>>;
+  try {
+    body = await bodyBlocks(ctx);
+  } finally {
+    CITE = null;
+  }
   const bulletLevels = ['•', '–', '◦'].map((text, level) => ({
     level,
     format: LevelFormat.BULLET,
