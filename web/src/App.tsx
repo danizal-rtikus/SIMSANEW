@@ -24,6 +24,7 @@ import { KelolaPedoman } from './pages/pedoman/KelolaPedoman';
 import { Pengguna } from './pages/admin/Pengguna';
 import { MasterData } from './pages/admin/MasterData';
 import { AuditLog } from './pages/admin/AuditLog';
+import { AisysLog } from './pages/admin/AisysLog';
 import { Notifikasi } from './pages/Notifikasi';
 import { Profil } from './pages/Profil';
 import { UjianList } from './pages/ujian/UjianList';
@@ -134,6 +135,7 @@ export function App() {
         <Route path="admin/pengguna" element={<ForRole roles={['admin']}><Pengguna /></ForRole>} />
         <Route path="admin/master" element={<ForRole roles={['admin']}><MasterData /></ForRole>} />
         <Route path="admin/audit" element={<ForRole roles={['admin']}><AuditLog /></ForRole>} />
+        <Route path="admin/aisys" element={<ForRole roles={['admin']}><AisysLog /></ForRole>} />
         <Route path="notifikasi" element={<Notifikasi />} />
         <Route path="profil" element={<Profil />} />
         <Route path="*" element={<Empty title="Halaman tidak ditemukan">Periksa kembali alamat yang Anda buka.</Empty>} />

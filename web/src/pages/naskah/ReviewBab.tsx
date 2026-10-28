@@ -18,6 +18,7 @@ import { useToast } from '../../components/Toast';
 import { IconArrowLeft } from '../../components/Icons';
 import { imageView } from './Naskah';
 import { CommentPanel } from './CommentPanel';
+import { AisysReviewPanel } from './Aisys';
 import { DiffView } from './DiffView';
 import { citedIds, loadCiteStyle, loadReferences } from '../../lib/pustaka/data';
 import type { Reference } from '../../lib/pustaka/csl';
@@ -91,6 +92,7 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
   const [composing, setComposing] = useState<{ from: number; to: number; kutipan: string } | null>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const myPeran = userId ? data.peran.get(userId) : undefined;
@@ -318,6 +320,11 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
             </div>
           </div>
           <div className="nk-head-actions">
+            {myPeran && sub.status !== 'ditarik' && tab === 'naskah' && (
+              <Button onClick={() => setAiOpen(!aiOpen)} aria-pressed={aiOpen}>
+                Periksa dengan AISYS
+              </Button>
+            )}
             {(['P1', 'P2'] as const).map((p) => {
               const r = reviews.find((x) => x.peran === p);
               const accOld = d.approvals.find((a) => a.peran === p);
@@ -365,6 +372,9 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
               </button>
             )}
           </div>
+          {aiOpen && editor ? (
+            <AisysReviewPanel editor={editor} submissionId={sub.id} canComment={canComment} draftMode={draftMode} footer={decision} onClose={() => setAiOpen(false)} onCommented={reload} />
+          ) : (
           <CommentPanel
             list={list}
             mode={mode}
@@ -401,6 +411,7 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
               )
             }
           />
+          )}
         </div>
       )}
 

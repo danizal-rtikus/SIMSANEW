@@ -10,6 +10,7 @@
 -- =====================================================================
 begin;
 
+do $$ begin if to_regclass('public.ai_usage_logs') is not null then delete from public.ai_usage_logs; end if; end $$;
 do $$ begin if to_regclass('public.thesis_references') is not null then delete from public.thesis_references; end if; end $$;
 delete from public.review_comments;
 delete from public.chapter_reviews;

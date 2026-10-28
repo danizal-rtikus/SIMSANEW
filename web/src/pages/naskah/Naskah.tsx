@@ -15,6 +15,7 @@ import { anchorComments, babState, loadReviewData, threads } from '../../lib/nas
 import { CommentPanel } from './CommentPanel';
 import { AjukanBabModal, ImportWordModal } from './NaskahDialogs';
 import { CiteDialog, PustakaPanel, usePustaka, type CiteMode } from './Pustaka';
+import { AisysPanel } from './Aisys';
 import type { CiteStyle } from '../../lib/pustaka/format';
 import type { Reference } from '../../lib/pustaka/csl';
 import type { ResolvedImage } from '../../lib/naskah/docx';
@@ -411,9 +412,17 @@ function NaskahWorkspace({
   const commentList = useMemo(() => threads((rv.data?.comments ?? []).filter((c) => c.terkirim)), [rv.data]);
   const activeCount = commentList.filter((t) => t.root.status !== 'selesai').length;
   const [showComments, setShowComments] = useState<boolean | null>(null);
-  const [pustakaOpen, setPustakaOpen] = useState(false);
-  const commentsVisible = !pustakaOpen && (showComments ?? activeCount > 0);
-  const sideVisible = (commentsVisible || pustakaOpen) && !viewing;
+  const [panel, setPanel] = useState<'pustaka' | 'aisys' | null>(null);
+  const pustakaOpen = panel === 'pustaka';
+  const aisysOpen = panel === 'aisys' && canEdit;
+  const commentsVisible = !panel && (showComments ?? activeCount > 0);
+  const sideVisible = (commentsVisible || !!panel) && !viewing;
+  const togglePanel = (p: 'pustaka' | 'aisys') => {
+    if (panel === p) {
+      setPanel(null);
+      setShowComments(false);
+    } else setPanel(p);
+  };
   const nomorPengajuan = useMemo(() => new Map<string, number>((rv.data?.submissions ?? []).map((x) => [x.id, x.nomor])), [rv.data]);
   const [orphans, setOrphans] = useState<Set<string>>(new Set());
 
@@ -486,13 +495,18 @@ function NaskahWorkspace({
               Ajukan bab
             </Button>
           )}
-          <Button onClick={() => setPustakaOpen(!pustakaOpen)} aria-pressed={pustakaOpen}>
+          {canEdit && (
+            <Button onClick={() => togglePanel('aisys')} aria-pressed={aisysOpen}>
+              AISYS
+            </Button>
+          )}
+          <Button onClick={() => togglePanel('pustaka')} aria-pressed={pustakaOpen}>
             <IconBook size={16} /> Pustaka{pk.refs?.length ? ` (${pk.refs.length})` : ''}
           </Button>
           {commentList.length > 0 && (
             <Button
               onClick={() => {
-                setPustakaOpen(false);
+                setPanel(null);
                 setShowComments(!commentsVisible);
               }}
               aria-pressed={commentsVisible}
@@ -545,6 +559,7 @@ function NaskahWorkspace({
         {pustakaOpen && !viewing && pk.refs && (
           <PustakaPanel editor={editor} refs={pk.refs} style={pk.style} canEdit={canEdit} onRefs={pk.setRefs} onAdd={() => setCiteMode({ kind: 'add' })} />
         )}
+        {aisysOpen && !viewing && pk.refs && <AisysPanel editor={editor} thesisId={thesis.id} judul={thesis.judul} refs={pk.refs} onRefs={pk.setRefs} flush={flush} />}
         {commentsVisible && !viewing && rv.data && (
           <CommentPanel
             list={commentList}

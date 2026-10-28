@@ -29,7 +29,8 @@ Di Supabase Dashboard buka **SQL Editor**, lalu jalankan berkas berikut **beruru
 8. `supabase/migrations/20261028000800_review_bab.sql` (pengajuan bab, review dosen, komentar, Track Changes)
 9. `supabase/migrations/20261028000900_review_dua_pembimbing.sql` (review oleh dua pembimbing secara paralel, kirim komentar tanpa keputusan)
 10. `supabase/migrations/20261028001000_pustaka.sql` (pustaka rujukan naskah untuk sitasi dan daftar pustaka otomatis)
-11. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
+11. `supabase/migrations/20261028001100_aisys.sql` (catatan pemakaian AISYS, hanya dapat dibaca Admin)
+12. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
 
 Atau jalankan satu berkas `supabase/setup_lengkap.sql` (gabungan semua di atas) pada proyek kosong.
 
@@ -128,6 +129,23 @@ Tombol **Sitasi** di toolbar dan panel **Pustaka** di editor naskah. Rujukan dis
 - Panel Pustaka menampilkan jumlah rujukan, persentase terbitan 10 tahun terakhir dan jurnal, serta rujukan yang belum dikutip, tanpa tahun, tanpa penulis, ganda, atau sitasi yang rujukannya sudah dihapus.
 - Ekspor DOCX dan cetak memuat teks sitasi dan daftar pustaka dengan inden gantung. Dosen melihat sitasi yang sama pada halaman review bab.
 - Hanya mahasiswa pemilik yang dapat mengubah pustaka; pembimbing dan pihak lain yang berhak melihat studi akhir dapat membaca.
+
+### AISYS (Akal Imitasi STIKOM Yos Sudarso)
+
+Asisten AI yang dipanggil lewat server Node.js (`/api/aisys/*`), memakai endpoint kompatibel OpenAI (SumoPod). Kunci API hanya ada di server.
+
+| Fitur | Di mana | Siapa |
+| --- | --- | --- |
+| Parafrase teks terpilih (akademik, ringkas, sederhana), dua varian | Panel AISYS di editor naskah, tab Tulis | Mahasiswa pemilik |
+| Kembangkan poin menjadi paragraf, mengikuti konteks bab dan subbab; klaim tanpa sumber ditandai [perlu rujukan] | Tab Tulis | Mahasiswa pemilik |
+| Cari jurnal relevan: AISYS menyusun kata kunci, literatur diambil dari Crossref (DOI nyata), AISYS memilih yang relevan beserta alasannya, lalu dapat ditambahkan ke pustaka | Tab Cari jurnal | Mahasiswa pemilik |
+| Periksa bab: membandingkan bab tersimpan dengan pedoman prodi dan menunjukkan kekurangan; klik temuan untuk menuju teksnya | Tab Periksa bab | Mahasiswa pemilik |
+| Review bab: usulan catatan untuk bab yang diajukan; dosen memilih temuan, menyuntingnya, lalu menjadikannya komentar (draf) atas namanya sendiri | Tombol Periksa dengan AISYS di halaman review bab | Pembimbing dan penguji |
+
+- Setiap pemakaian dicatat di `ai_usage_logs` (pengguna, fitur, token, durasi, status, cuplikan pendek masukan). Isi naskah dan jawaban AISYS tidak disimpan. Catatan ini hanya dapat dibaca Admin di menu **Log AISYS**.
+- Batas pemakaian per pengguna per hari (WIB) diatur dengan `AISYS_LIMIT_HARIAN` (bawaan 40; 0 berarti tanpa batas).
+- Variabel server: `AI_BASE_URL` (bawaan `https://ai.sumopod.com/v1`), `AI_API_KEY`, `AI_MODEL` (bawaan `deepseek-v4-flash`), `AISYS_LIMIT_HARIAN`. Di Vercel tambahkan di project server (`AI_API_KEY` sebagai Secret). `/api/health` menampilkan `aisys.aktif`.
+- Periksa bab dapat memakan waktu 10 sampai 40 detik. Bila di Vercel muncul galat batas waktu, naikkan **Settings > Functions > Max Duration** project server (mis. 60 detik).
 
 ### Review per bab
 

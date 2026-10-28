@@ -185,6 +185,7 @@ export function navFor(role: AppRole | undefined, c: NavCounts): NavSection[] {
           items: [
             { to: '/admin/pengguna', label: 'Pengguna', icon: <IconUsers /> },
             { to: '/admin/audit', label: 'Audit log', icon: <IconHistory /> },
+            { to: '/admin/aisys', label: 'Log AISYS', icon: <IconChart /> },
           ],
         },
         {

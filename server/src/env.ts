@@ -28,4 +28,12 @@ export const env = {
     .map((s) => clean(s).replace(/\/+$/, ''))
     .filter(Boolean),
   defaultImportPassword: process.env.DEFAULT_IMPORT_PASSWORD || '',
+  // AISYS: endpoint kompatibel OpenAI (SumoPod). Kosong berarti AISYS nonaktif.
+  ai: {
+    baseUrl: clean(process.env.AI_BASE_URL || 'https://ai.sumopod.com/v1').replace(/\/+$/, ''),
+    apiKey: clean(process.env.AI_API_KEY),
+    model: clean(process.env.AI_MODEL || 'deepseek-v4-flash'),
+    // Batas pemakaian per pengguna per hari (WIB). 0 berarti tanpa batas.
+    dailyLimit: Number(clean(process.env.AISYS_LIMIT_HARIAN) || 40),
+  },
 };

@@ -5,6 +5,8 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { env } from './env.js';
 import { adminRouter } from './routes/admin.js';
+import { aisysRouter } from './routes/aisys.js';
+import { aiReady } from './aisys/llm.js';
 import { UserError } from './users.js';
 import { checkSupabase, printCheck } from './check.js';
 
@@ -15,12 +17,11 @@ app.use(express.json({ limit: '5mb' }));
 
 app.get('/api/health', async (_req, res) => {
   const c = await checkSupabase();
-  res.json({ ok: true, service: 'simsa-server', time: new Date().toISOString(), corsOrigin: env.corsOrigin, supabase: { ok: c.ok, problems: c.problems } });
+  res.json({ ok: true, service: 'simsa-server', time: new Date().toISOString(), corsOrigin: env.corsOrigin, supabase: { ok: c.ok, problems: c.problems }, aisys: { aktif: aiReady(), model: env.ai.model } });
 });
 
 app.use('/api/admin', adminRouter);
-
-// Fase 2: /api/ai (DeepSeek) dan /api/references (Mendeley) akan ditambahkan di sini.
+app.use('/api/aisys', aisysRouter);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Endpoint tidak ditemukan' }));
 
