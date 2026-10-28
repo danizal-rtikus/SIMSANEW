@@ -100,10 +100,18 @@ async function run<T>(
   let tin = 0;
   let tout = 0;
   const call: typeof chat = async (m, o) => {
-    const r: ChatResult = await chat(m, o);
-    tin += r.tokenMasuk;
-    tout += r.tokenKeluar;
-    return r;
+    try {
+      const r: ChatResult = await chat(m, o);
+      tin += r.tokenMasuk;
+      tout += r.tokenKeluar;
+      return r;
+    } catch (e) {
+      if (e instanceof AiError && e.usage) {
+        tin += e.usage.tokenMasuk;
+        tout += e.usage.tokenKeluar;
+      }
+      throw e;
+    }
   };
   let sisa: number;
   try {
@@ -161,7 +169,7 @@ aisysRouter.post(
           { role: 'system', content: P.PARAFRASE },
           { role: 'user', content: `Gaya: ${P.GAYA_PARAFRASE[gaya]}\n\nTeks:\n${teks}` },
         ],
-        { json: true, temperature: 0.7, maxTokens: 1800 },
+        { json: true, temperature: 0.7, maxTokens: 4000 },
       );
       const j = parseJson<{ hasil?: unknown }>(r.text);
       const hasil = (Array.isArray(j.hasil) ? j.hasil : [j.hasil]).filter((x): x is string => typeof x === 'string' && x.trim().length > 0).map((x) => x.trim()).slice(0, 3);
@@ -193,7 +201,7 @@ aisysRouter.post(
           { role: 'system', content: P.SUSUN },
           { role: 'user', content: `${konteks}\n\nPoin yang dikembangkan:\n${poin}` },
         ],
-        { json: true, temperature: 0.6, maxTokens: 1800 },
+        { json: true, temperature: 0.6, maxTokens: 4000 },
       );
       const j = parseJson<{ hasil?: unknown }>(r.text);
       const hasil = typeof j.hasil === 'string' ? j.hasil.trim() : Array.isArray(j.hasil) ? j.hasil.filter((x) => typeof x === 'string').join('\n\n') : '';
@@ -253,7 +261,7 @@ aisysRouter.post(
           { role: 'system', content: P.KUERI_JURNAL },
           { role: 'user', content: `Judul penelitian: ${t.judul}\n\nTopik yang dicari:\n${topik}` },
         ],
-        { json: true, temperature: 0.3, maxTokens: 300 },
+        { json: true, temperature: 0.3, maxTokens: 2000 },
       );
       const kueri = (parseJson<{ kueri?: unknown }>(r1.text).kueri as unknown[] | undefined ?? [])
         .filter((x): x is string => typeof x === 'string' && x.trim().length > 2)
@@ -291,7 +299,7 @@ aisysRouter.post(
           { role: 'system', content: P.PILIH_JURNAL },
           { role: 'user', content: `Judul penelitian: ${t.judul}\nTopik: ${topik}\n\nDaftar hasil pencarian:\n${daftar}` },
         ],
-        { json: true, temperature: 0.2, maxTokens: 1200 },
+        { json: true, temperature: 0.2, maxTokens: 4000, timeoutMs: 90000 },
       );
       const pilihan = (parseJson<{ pilihan?: { no?: unknown; alasan?: unknown }[] }>(r2.text).pilihan ?? [])
         .map((p) => ({ i: Number(p.no) - 1, alasan: typeof p.alasan === 'string' ? p.alasan.trim() : '' }))
@@ -398,14 +406,25 @@ async function analyzeBab(call: typeof chat, system: string, t: ThesisRow, block
     ped ? `Ketentuan pedoman prodi yang relevan:\n${ped}` : 'Pedoman prodi untuk bab ini tidak tersedia; gunakan kelaziman penulisan skripsi di Indonesia.',
     `Teks Bab ${bab}:\n${clip(withCite, 24000)}`,
   ].join('\n\n');
-  const r = await call(
-    [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-    { json: true, temperature: 0.3, maxTokens: 3500, timeoutMs: 55000 },
-  );
-  const j = parseJson<{ ringkasan?: unknown; kekuatan?: unknown; temuan?: unknown }>(r.text);
+  type Out = { ringkasan?: unknown; kekuatan?: unknown; temuan?: unknown };
+  const ask = async (extra: string, maxTokens: number): Promise<Out> => {
+    const r = await call(
+      [
+        { role: 'system', content: system + extra },
+        { role: 'user', content: user },
+      ],
+      { json: true, temperature: 0.3, maxTokens, timeoutMs: 110000 },
+    );
+    return parseJson<Out>(r.text);
+  };
+  let j: Out;
+  try {
+    j = await ask('', 8000);
+  } catch (e) {
+    // Jawaban kosong, terpotong, atau tidak terbaca: ulangi sekali dengan keluaran lebih ringkas.
+    if (!(e instanceof AiError) || e.status === 503 || e.status === 429 || e.status === 504) throw e;
+    j = await ask('\n\nPENTING: jawab ringkas. Paling banyak 6 temuan, setiap bidang paling banyak 30 kata. Langsung keluarkan objek JSON saja.', 8000);
+  }
   return {
     bab,
     judul: judulBab,

@@ -60,7 +60,7 @@ const TEMUAN_FORMAT = `Keluaran: objek JSON dengan bentuk
   ]
 }
 Aturan kutipan: salin karakter demi karakter dari teks naskah, tanpa penanda dalam kurung siku seperti [sitasi: ...], tanpa nomor subbab, dan jangan diringkas.
-Paling banyak 10 temuan, urutkan dari yang paling penting. Jangan mengulang temuan yang sama.`;
+Paling banyak 8 temuan, urutkan dari yang paling penting. Setiap bidang ringkas (masalah dan saran masing-masing paling banyak 40 kata). Jangan mengulang temuan yang sama. Keluarkan objek JSON saja tanpa teks lain.`;
 
 export const PERIKSA_BAB = `${DASAR}
 

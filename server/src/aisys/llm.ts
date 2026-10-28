@@ -11,9 +11,13 @@ export interface ChatResult {
   text: string;
   tokenMasuk: number;
   tokenKeluar: number;
+  /** 'stop' normal; 'length' berarti jawaban terpotong karena batas token. */
+  finish: string;
 }
 
 export class AiError extends UserError {
+  kosong = false;
+  usage?: { tokenMasuk: number; tokenKeluar: number };
   constructor(message: string, status = 502) {
     super(message);
     this.status = status;
@@ -67,12 +71,56 @@ export async function chat(messages: ChatMessage[], opts: { json?: boolean; temp
     throw new AiError(`Layanan AISYS mengembalikan galat (${res.status}).`);
   }
   const j = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
+    choices?: { message?: { content?: string | null; reasoning_content?: string | null }; finish_reason?: string }[];
     usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
-  const text = j.choices?.[0]?.message?.content ?? '';
-  if (!text.trim()) throw new AiError('AISYS tidak memberi jawaban. Coba lagi.');
-  return { text, tokenMasuk: j.usage?.prompt_tokens ?? 0, tokenKeluar: j.usage?.completion_tokens ?? 0 };
+  const c = j.choices?.[0];
+  const text = c?.message?.content ?? '';
+  const finish = c?.finish_reason ?? '';
+  const tokenMasuk = j.usage?.prompt_tokens ?? 0;
+  const tokenKeluar = j.usage?.completion_tokens ?? 0;
+  if (!text.trim()) {
+    // Model bernalar dapat menghabiskan batas token untuk "berpikir" sebelum menjawab.
+    console.error('[AISYS] jawaban kosong', { finish, tokenKeluar, reasoning: (c?.message?.reasoning_content ?? '').length });
+    const e = new AiError(finish === 'length' ? `AISYS kehabisan batas panjang jawaban (finish=length, ${tokenKeluar} token).` : `AISYS tidak memberi jawaban (finish=${finish || '-'}).`);
+    e.kosong = true;
+    e.usage = { tokenMasuk, tokenKeluar };
+    throw e;
+  }
+  return { text, tokenMasuk, tokenKeluar, finish };
+}
+
+/**
+ * Perbaiki JSON yang terpotong: potong di elemen larik/objek terakhir yang
+ * lengkap lalu tutup kurung yang masih terbuka.
+ */
+function repairJson(s: string): string | null {
+  const stack: string[] = [];
+  let inStr = false;
+  let esc = false;
+  let cut = -1;
+  let cutStack: string[] = [];
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === '{' || ch === '[') stack.push(ch === '{' ? '}' : ']');
+    else if (ch === '}' || ch === ']') {
+      stack.pop();
+      if (stack.length && stack[stack.length - 1] === ']') {
+        cut = i + 1;
+        cutStack = [...stack];
+      }
+      if (!stack.length) return s.slice(0, i + 1);
+    }
+  }
+  if (cut < 0) return null;
+  return s.slice(0, cut) + cutStack.reverse().join('');
 }
 
 /** Ambil objek JSON dari jawaban model (toleran terhadap pagar ``` dan teks pengantar). */
@@ -88,9 +136,20 @@ export function parseJson<T>(text: string): T {
       try {
         return JSON.parse(s) as T;
       } catch {
-        /* jatuh ke galat */
+        /* coba perbaikan di bawah */
+      }
+    }
+    if (a >= 0) {
+      const fixed = repairJson(text.slice(text.indexOf('{')));
+      if (fixed) {
+        try {
+          return JSON.parse(fixed) as T;
+        } catch {
+          /* jatuh ke galat */
+        }
       }
     }
   }
-  throw new AiError('Jawaban AISYS tidak dapat dibaca. Coba lagi.');
+  console.error('[AISYS] JSON tidak terbaca', text.length, text.slice(0, 200), '...', text.slice(-200));
+  throw new AiError(`Jawaban AISYS tidak dapat dibaca (${text.length} karakter). Coba lagi.`);
 }
