@@ -1,0 +1,16 @@
+{
+  "name": "simsa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SIMSA — Sistem Informasi Manajemen Studi Akhir",
+  "scripts": {
+    "install:all": "npm install --prefix server && npm install --prefix web",
+    "dev": "concurrently -n server,web -c blue,green \"npm --prefix server run dev\" \"npm --prefix web run dev\"",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix server run start",
+    "typecheck": "npm --prefix web run typecheck && npm --prefix server run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}
