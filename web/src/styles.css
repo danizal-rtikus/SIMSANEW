@@ -1216,3 +1216,7 @@ html[data-density='rapat'] .stack { gap: 12px; }
 html[data-density='rapat'] .btn { min-height: 32px; padding-top: 5px; padding-bottom: 5px; }
 .sk-headrow { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 4px 0; }
 .title-req-panel { margin-bottom: 14px; }
+
+.nk-outline-add { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 6px; margin: 10px 8px 4px; padding: 7px 10px; border: 1px dashed var(--line-strong); border-radius: var(--r); font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.nk-outline-add:hover { border-color: var(--almamater); color: var(--almamater); }
+.nk-outline-add:focus-visible { outline: 2px solid var(--almamater); outline-offset: 1px; }

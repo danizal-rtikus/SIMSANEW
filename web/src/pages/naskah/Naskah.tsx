@@ -509,13 +509,40 @@ function NaskahWorkspace({
   useEffect(() => {
     if (editor && canEdit) editor.commands.setBabTerkunci(lockedBab);
   }, [editor, canEdit, lockedBab]);
-  blockedRef.current = (bab) => toast.show(`Bab ${bab} sudah di-ACC Pembimbing 1 dan 2 sehingga terkunci. Lanjutkan ke bab berikutnya.`, 'bad');
+  blockedRef.current = (bab) => toast.show(`Bab ${bab} sudah di-ACC Pembimbing 1 dan 2 sehingga terkunci. Untuk menulis bab berikutnya, klik Tambah bab di panel Struktur.`, 'bad');
 
   const latestPerBab = useMemo(() => {
     const m = new Map<number, ReturnType<typeof babState>>();
     if (rv.data) for (const o of outline) if (o.level === 1 && o.nomor) m.set(o.bab, babState(rv.data, o.bab));
     return m;
   }, [rv.data, outline]);
+
+  /**
+   * Tambah bab baru setelah bab bernomor terakhir (sebelum bagian tanpa nomor seperti
+   * DAFTAR PUSTAKA). Mengetik di akhir bab yang terkunci akan masuk ke bab itu, jadi bab
+   * baru selalu dibuat lewat tombol ini.
+   */
+  const addBab = () => {
+    if (!editor) return;
+    const doc = editor.state.doc;
+    let lastNumbered = -1;
+    let at = doc.content.size;
+    doc.forEach((n, pos) => {
+      if (n.type.name === 'heading' && n.attrs.level === 1) {
+        if (n.attrs.bernomor !== false) lastNumbered = pos;
+        else if (lastNumbered >= 0 && at === doc.content.size && pos > lastNumbered) at = pos;
+      }
+    });
+    const ok = editor
+      .chain()
+      .insertContentAt(at, [{ type: 'heading', attrs: { level: 1 } }, { type: 'paragraph' }])
+      .setTextSelection(at + 1)
+      .focus()
+      .run();
+    if (!ok) return toast.show('Bab baru tidak dapat ditambahkan.', 'bad');
+    requestAnimationFrame(() => (editor.view.nodeDOM(at) as HTMLElement | null)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+    toast.show('Bab baru ditambahkan. Ketik judul babnya, mis. TINJAUAN PUSTAKA.', 'ok');
+  };
 
   const jumpTo = (pos: number) => {
     if (!editor) return;
@@ -586,6 +613,11 @@ function NaskahWorkspace({
           </li>
         ))}
       </ul>
+      {canEdit && !viewing && (
+        <button type="button" className="nk-outline-add" onClick={addBab}>
+          <IconPlus size={15} /> Tambah bab
+        </button>
+      )}
     </aside>
   );
 
