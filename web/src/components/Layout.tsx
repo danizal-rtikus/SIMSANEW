@@ -2,6 +2,7 @@ import { Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } fr
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, roleKey } from '../lib/auth';
 import { supabase } from '../lib/supabase';
+import { queryClient } from '../lib/queryClient';
 import { ROLE_LABEL } from '../lib/labels';
 import { HOME, matchLink, navFor, thesisNav, type NavCounts, type NavItem, type NavSection } from '../lib/navigation';
 import { useEntity, useFavorites, usePref, useRecents } from '../lib/shell';
@@ -32,6 +33,7 @@ import {
   IconUndo,
   IconUpDown,
   IconUserCircle,
+  IconRefresh,
 } from './Icons';
 
 /** Animasi menu sidebar hanya sekali per pembukaan aplikasi. */
@@ -113,7 +115,8 @@ export function Layout() {
         const leafs = it.children?.length ? it.children.map((c) => ({ ...c, parent: it.label })) : [{ ...it, parent: s.label }];
         const hit = leafs.find((l) => matchLink(l.to, pathname, search, { exactQuery: true }));
         if (hit) {
-          addRecent({ path: pathname + search, title: it.children?.length ? `${it.label}: ${hit.label}` : hit.label, sub: it.children?.length ? s.label : hit.parent });
+          // Alamat menu (tanpa filter halaman seperti ?peran=) agar satu menu tercatat sekali.
+          addRecent({ path: hit.to, title: it.children?.length ? `${it.label}: ${hit.label}` : hit.label, sub: it.children?.length ? s.label : hit.parent });
           return;
         }
       }
@@ -140,9 +143,11 @@ export function Layout() {
       })
       .subscribe();
     window.addEventListener('simsa:notif-read', load);
+    window.addEventListener('simsa:refresh', load);
     return () => {
       alive = false;
       window.removeEventListener('simsa:notif-read', load);
+      window.removeEventListener('simsa:refresh', load);
       supabase.removeChannel(channel);
     };
   }, [userId]);
@@ -228,6 +233,8 @@ export function Layout() {
   // Remah roti di topbar untuk halaman menu
   const crumb = useMemo(() => {
     for (const s of sections) for (const it of s.items) if (matchLink(it.to, pathname, search, { end: it.end })) return { section: s.label, page: it.label };
+    // Submenu yang berada di alamat lain dari menu induknya (mis. Pengguna > Verifikasi akun).
+    for (const s of sections) for (const it of s.items) for (const c of it.children ?? []) if (!c.to.includes('?') && matchLink(c.to, pathname, '')) return { section: it.label, page: c.label };
     if (pathname === '/') return { page: 'Beranda' };
     if (pathname.startsWith('/notifikasi')) return { page: 'Notifikasi' };
     if (pathname.startsWith('/profil')) return { page: 'Profil' };
@@ -539,6 +546,12 @@ export function Layout() {
             )
           )}
           <div className="spacer" />
+          <RefreshButton
+            onRefresh={() => {
+              countsAt.current = { key: '', at: 0 };
+              setTick((t) => t + 1);
+            }}
+          />
           <Link to="/pedoman" className="tb-link">
             Pedoman
           </Link>
@@ -619,4 +632,30 @@ export function Layout() {
 /** Tombol pembuka pencarian cepat untuk dipakai di halaman (mis. Beranda). */
 export function openPalette() {
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
+}
+
+/** Muat ulang data halaman yang sedang dibuka tanpa memuat ulang aplikasi (pengganti F5). */
+function RefreshButton({ onRefresh }: { onRefresh: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    onRefresh();
+    window.dispatchEvent(new CustomEvent('simsa:refresh'));
+    const t0 = Date.now();
+    try {
+      await queryClient.invalidateQueries({
+        refetchType: 'active',
+        // Isi naskah yang sedang disunting tidak dimuat ulang agar suntingan tidak tertimpa.
+        predicate: (q) => q.queryKey[3] !== 'naskah-doc',
+      });
+    } finally {
+      window.setTimeout(() => setBusy(false), Math.max(0, 500 - (Date.now() - t0)));
+    }
+  };
+  return (
+    <button className={`icon-btn tb-refresh ${busy ? 'busy' : ''}`} onClick={run} aria-label="Muat ulang data halaman ini" title="Muat ulang data" aria-busy={busy}>
+      <IconRefresh size={17} />
+    </button>
+  );
 }

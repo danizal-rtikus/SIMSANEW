@@ -117,7 +117,8 @@ function NaskahView({ thesisId, self }: { thesisId: string; self?: boolean }) {
       mhs: mhs as { nama: string; nim: string | null } | null,
       prodiNama: prodi.find((p) => p.id === thesis.prodi_id)?.nama ?? '',
     };
-  }, [thesisId]);
+    // Kunci 'naskah-doc' dikecualikan dari tombol Muat ulang agar suntingan yang belum tersimpan tidak tertimpa.
+  }, [thesisId], { key: 'naskah-doc' });
 
   useRegisterEntity(
     !self && st.data

@@ -187,8 +187,16 @@ export function navFor(role: AppRole | undefined, c: NavCounts): NavSection[] {
         {
           label: 'Pengguna dan akses',
           items: [
-            { to: '/admin/verifikasi', label: 'Verifikasi akun', icon: <IconUserCheck />, count: c.akun },
-            { to: '/admin/pengguna', label: 'Pengguna', icon: <IconUsers /> },
+            {
+              to: '/admin/pengguna',
+              label: 'Pengguna',
+              icon: <IconUsers />,
+              count: c.akun,
+              children: [
+                { to: '/admin/pengguna', label: 'Daftar pengguna', isDefault: true },
+                { to: '/admin/verifikasi', label: 'Verifikasi akun', count: c.akun },
+              ],
+            },
             { to: '/admin/audit', label: 'Audit log', icon: <IconHistory /> },
             { to: '/admin/aisys', label: 'Log AISYS', icon: <IconChart /> },
           ],

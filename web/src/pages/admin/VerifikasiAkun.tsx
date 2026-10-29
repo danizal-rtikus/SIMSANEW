@@ -172,7 +172,7 @@ export function VerifikasiAkun() {
             </div>
           )}
           <div className="table-wrap">
-            <table className="table">
+            <table className="table has-check">
               <thead>
                 <tr>
                   {tab === 'menunggu' && (
