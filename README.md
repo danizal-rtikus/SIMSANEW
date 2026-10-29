@@ -31,7 +31,8 @@ Di Supabase Dashboard buka **SQL Editor**, lalu jalankan berkas berikut **beruru
 10. `supabase/migrations/20261028001000_pustaka.sql` (pustaka rujukan naskah untuk sitasi dan daftar pustaka otomatis)
 11. `supabase/migrations/20261028001100_aisys.sql` (catatan pemakaian AISYS, hanya dapat dibaca Admin)
 12. `supabase/migrations/20261028001200_kinerja.sql` (indeks dan aturan RLS yang lebih cepat; aman dijalankan ulang)
-13. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
+13. `supabase/migrations/20261028001300_kunci_fase_judul.sql` (kunci bab setelah ACC, fase milestone, usulan perubahan judul, tautan sesi ke pengajuan bab, fitur AISYS baru)
+14. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
 
 Atau jalankan satu berkas `supabase/setup_lengkap.sql` (gabungan semua di atas) pada proyek kosong.
 
@@ -145,18 +146,34 @@ Tombol **Sitasi** di toolbar dan panel **Pustaka** di editor naskah. Rujukan dis
 
 Asisten AI yang dipanggil lewat server Node.js (`/api/aisys/*`), memakai endpoint kompatibel OpenAI (SumoPod). Kunci API hanya ada di server.
 
-| Fitur | Di mana | Siapa |
+Di editor naskah, panel AISYS berisi menu fitur per kelompok. Instruksi sistem membuat AISYS berperan sebagai peneliti senior: teliti dan jujur secara ilmiah, tidak mengarang data, angka, kutipan, atau rujukan (kekurangan ditandai [perlu rujukan] / [perlu data: ...]), dan tidak menuliskan bab utuh untuk mahasiswa. Kutipan yang dikembalikan AISYS selalu dicocokkan dengan teks naskah di server; yang tidak ditemukan dibuang.
+
+| Kelompok | Fitur | Hasil dan tindakan |
 | --- | --- | --- |
-| Parafrase teks terpilih (akademik, ringkas, sederhana), dua varian | Panel AISYS di editor naskah, tab Tulis | Mahasiswa pemilik |
-| Kembangkan poin menjadi paragraf, mengikuti konteks bab dan subbab; klaim tanpa sumber ditandai [perlu rujukan] | Tab Tulis | Mahasiswa pemilik |
-| Cari jurnal relevan: AISYS menyusun kata kunci, literatur diambil dari Crossref (DOI nyata), AISYS memilih yang relevan beserta alasannya, lalu dapat ditambahkan ke pustaka | Tab Cari jurnal | Mahasiswa pemilik |
-| Periksa bab: membandingkan bab tersimpan dengan pedoman prodi dan menunjukkan kekurangan; klik temuan untuk menuju teksnya | Tab Periksa bab | Mahasiswa pemilik |
-| Review bab: usulan catatan untuk bab yang diajukan; dosen memilih temuan, menyuntingnya, lalu menjadikannya komentar (draf) atas namanya sendiri | Tombol Periksa dengan AISYS di halaman review bab | Pembimbing dan penguji |
+| Menulis | Parafrase dan kembangkan | Dua varian parafrase (akademik, ringkas, sederhana); poin menjadi paragraf sesuai konteks bab |
+| | Kerangka subbab | Subbab sesuai pedoman prodi dan judul, dengan panduan isi; judul subbab yang dipilih disisipkan di akhir bab |
+| | Draf abstrak | Abstrak Indonesia dan Inggris dari seluruh naskah beserta kata kunci; bagian yang belum ada ditandai; dapat disisipkan di awal naskah |
+| Memeriksa | Periksa bab | Temuan kelengkapan, logika, dan bahasa terhadap pedoman prodi |
+| | Ejaan dan kalimat efektif | Koreksi EYD V, tanda baca, kata baku, kalimat efektif per bagian bab; terapkan satu per satu atau sekaligus (bagian bersitasi tidak diubah otomatis) |
+| | Keselarasan antarbab | Matriks rumusan masalah ke tujuan, metode, hasil, dan kesimpulan, plus temuan antarbab |
+| | Tanggapi catatan dosen | Maksud catatan, langkah perbaikan, contoh revisi bila relevan, dan draf balasan yang dapat dikirim |
+| Rujukan | Cari jurnal | Kata kunci dari AISYS, literatur dari Crossref (DOI nyata), alasan relevansi; tambah ke pustaka |
+| | Cocokkan rujukan | Klaim tanpa sitasi dicocokkan dengan pustaka; sisipkan sitasi di akhir kalimat atau lanjut Cari jurnal |
+| | Tabel penelitian terdahulu | Metode, hasil, dan perbedaan dari abstrak rujukan terpilih (abstrak diambil dari Crossref bila belum tersimpan); disisipkan sebagai tabel bersitasi |
+| Ujian | Persiapan seminar | Perkiraan pertanyaan penguji dengan poin jawaban dari naskah dan kerangka slide; unduh sebagai teks |
+| Dosen | Review bab | Di halaman review bab: usulan catatan yang dapat dijadikan komentar atas nama dosen |
 
 - Setiap pemakaian dicatat di `ai_usage_logs` (pengguna, fitur, token, durasi, status, cuplikan pendek masukan). Isi naskah dan jawaban AISYS tidak disimpan. Catatan ini hanya dapat dibaca Admin di menu **Log AISYS**.
 - Batas pemakaian per pengguna per hari (WIB) diatur dengan `AISYS_LIMIT_HARIAN` (bawaan 40; 0 berarti tanpa batas).
 - Variabel server: `AI_BASE_URL` (bawaan `https://ai.sumopod.com/v1`), `AI_API_KEY`, `AI_MODEL` (bawaan `deepseek-v4-flash`), `AISYS_LIMIT_HARIAN`. Di Vercel tambahkan di project server (`AI_API_KEY` sebagai Secret). `/api/health` menampilkan `aisys.aktif`.
 - Periksa bab dapat memakan waktu 10 sampai 40 detik. Bila di Vercel muncul galat batas waktu, naikkan **Settings > Functions > Max Duration** project server (mis. 60 detik).
+
+### Kunci bab, fase, dan perubahan judul
+
+- **Kunci bab.** Naskah tetap satu dokumen. Setelah Pembimbing 1 dan 2 sama-sama ACC sebuah bab, bab itu terkunci untuk mahasiswa: editor menolak suntingan di bab tersebut dan `simpan_naskah` menolak perubahan isinya (perubahan tampilan seperti perataan tetap boleh). Pembimbing yang sudah ACC tidak dapat menambah komentar pada bab itu. Kunci terbuka otomatis selama milestone Revisi Seminar Proposal / Revisi Seminar Hasil berjalan, lalu terkunci kembali. Status per bab: `status_kunci_bab`.
+- **Fase milestone.** Kolom `fase` pada template dan milestone (S1: Persiapan, Proposal, Hasil penelitian, Pendadaran, Kelulusan; D3: Persiapan, Penulisan, Ujian, Kelulusan). Halaman studi akhir menampilkan penanda fase; fase berjalan terbuka, fase lain terlipat. Fase dapat diubah di editor template.
+- **Perubahan judul.** Sebelum seminar pertama selesai, mahasiswa mengubah judul langsung (`ubah_judul`). Setelahnya, judul diubah lewat usulan (`usul_judul`) yang berlaku setelah Pembimbing 1 dan 2 menyetujui (`tanggapi_usul_judul`). Penguji dapat menandai "Perlu perubahan judul" beserta arahan (`arahan_judul_ujian`); ACC revisi terakhir tertahan sampai judul baru disetujui.
+- **Ajukan bab dan Ajukan bimbingan.** Ajukan bab (di Naskah) adalah jalur review isi. Ajukan bimbingan adalah pertemuan yang dihitung sebagai kehadiran, dengan tautan ke pengajuan bab yang dibahas (`tautkan_pengajuan_sesi`); unggahan berkas draf tetap tersedia sebagai cadangan.
 
 ### Review per bab
 

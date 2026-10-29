@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Editor } from '@tiptap/react';
-import type { Node as PMNode } from '@tiptap/pm/model';
-import { TextSelection } from '@tiptap/pm/state';
-import { aisys, GAYA_LABEL, KATEGORI_LABEL, type AisysStatus, type GayaParafrase, type HasilPeriksa, type Temuan } from '../../lib/aisys';
-import { buildIndex, chapterRange, findQuote, normalize, quoteAt } from '../../lib/naskah/anchor';
+import { aisys, GAYA_LABEL, KATEGORI_LABEL, type GayaParafrase, type HasilPeriksa, type Temuan } from '../../lib/aisys';
+import { quoteAt } from '../../lib/naskah/anchor';
+import { Disclaimer, Quota, contextAt, copy, insertParagraphsAfter, locateQuote, revealRange, selectionInfo, useStatus, type Snap } from './aisysKit';
 import { rpc } from '../../lib/queries';
 import { useDialog } from '../../components/Dialog';
 import { chapters, type PmNode } from '../../lib/naskah/struktur';
@@ -12,75 +11,10 @@ import { cleanTitle, normalizeDoi, yearOf, type Reference } from '../../lib/pust
 import { addReferences, pustakaError } from '../../lib/pustaka/data';
 import { Button } from '../../components/ui';
 import { useToast } from '../../components/Toast';
+import { IconArrowLeft } from '../../components/Icons';
+import { AbstrakTab, CocokTab, EjaanTab, KerangkaTab, KeselarasanTab, PersiapanTab, TabelTab, TanggapiTab, type CatatanDosen } from './AisysFitur';
 
-/* ------------------------------------------------------------------ */
-/* Bantuan                                                             */
-/* ------------------------------------------------------------------ */
-
-/** Cari kutipan temuan di dokumen (dalam rentang bab bila diberikan). */
-export function locateQuote(doc: PMNode, kutipan: string, bab?: number): { from: number; to: number } | null {
-  if (!kutipan.trim()) return null;
-  const range = bab ? chapterRange(doc, bab) : null;
-  const index = buildIndex(doc, range?.from ?? 0, range?.to ?? doc.content.size);
-  const hit = findQuote(index, { kutipan, prefix: '', suffix: '' });
-  if (hit) return hit;
-  // Huruf besar-kecil kadang diubah model: cari tanpa membedakannya.
-  const lower = index.text.toLowerCase();
-  const needle = normalize(kutipan).toLowerCase();
-  const i = lower.indexOf(needle);
-  if (i < 0) return null;
-  let s = i;
-  let e = i + needle.length - 1;
-  while (s <= e && index.map[s] < 0) s++;
-  while (e >= s && index.map[e] < 0) e--;
-  return s > e ? null : { from: index.map[s], to: index.map[e] + 1 };
-}
-
-/** Tampilkan rentang teks: seleksi editor bila dapat disunting, seleksi DOM bila hanya baca. */
-export function revealRange(editor: Editor, from: number, to: number) {
-  const { view } = editor;
-  if (editor.isEditable) {
-    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
-    view.focus();
-  } else {
-    try {
-      const a = view.domAtPos(from);
-      const b = view.domAtPos(to);
-      const r = document.createRange();
-      r.setStart(a.node, a.offset);
-      r.setEnd(b.node, b.offset);
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(r);
-    } catch {
-      /* abaikan */
-    }
-  }
-  const el = view.domAtPos(from).node;
-  (el.nodeType === 1 ? (el as HTMLElement) : el.parentElement)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-function useStatus() {
-  const [st, setSt] = useState<AisysStatus | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  useEffect(() => {
-    aisys
-      .status()
-      .then(setSt)
-      .catch((e) => setErr((e as Error).message));
-  }, []);
-  const update = (sisa: number | null) => setSt((s) => (s ? { ...s, sisa, terpakai: s.batas && sisa !== null ? s.batas - sisa : s.terpakai } : s));
-  return { st, err, update };
-}
-
-function Quota({ st }: { st: AisysStatus | null }) {
-  if (!st || st.sisa === null) return null;
-  return <span className={`nk-tag ${st.sisa <= 3 ? 'warn' : ''}`}>Sisa hari ini {st.sisa}</span>;
-}
-
-export function Disclaimer({ children }: { children?: ReactNode }) {
-  return <p className="nk-ai-note">{children ?? 'Hasil AISYS adalah bahan pertimbangan. Periksa dan sesuaikan sebelum dipakai; tanggung jawab isi naskah tetap pada Anda.'}</p>;
-}
+export { Disclaimer, locateQuote, revealRange } from './aisysKit';
 
 /* ------------------------------------------------------------------ */
 /* Daftar temuan (dipakai mahasiswa dan dosen)                         */
@@ -150,116 +84,168 @@ export function TemuanList({
 /* Panel AISYS di editor naskah (mahasiswa)                            */
 /* ------------------------------------------------------------------ */
 
-type Tab = 'tulis' | 'jurnal' | 'periksa';
+type Fitur = 'tulis' | 'kerangka' | 'abstrak' | 'periksa' | 'ejaan' | 'keselarasan' | 'tanggapi' | 'jurnal' | 'cocok' | 'tabel' | 'persiapan';
+
+interface FiturInfo {
+  key: Fitur;
+  label: string;
+  desc: string;
+}
+
+const MENU: { judul: string; items: FiturInfo[] }[] = [
+  {
+    judul: 'Menulis',
+    items: [
+      { key: 'tulis', label: 'Parafrase dan kembangkan', desc: 'Parafrase teks terpilih atau kembangkan poin menjadi paragraf' },
+      { key: 'kerangka', label: 'Kerangka subbab', desc: 'Susunan subbab sesuai pedoman prodi, dengan panduan isi' },
+      { key: 'abstrak', label: 'Draf abstrak', desc: 'Abstrak Indonesia dan Inggris dari isi naskah' },
+    ],
+  },
+  {
+    judul: 'Memeriksa',
+    items: [
+      { key: 'periksa', label: 'Periksa bab', desc: 'Kelengkapan, logika, dan bahasa satu bab' },
+      { key: 'ejaan', label: 'Ejaan dan kalimat efektif', desc: 'Koreksi EYD, tanda baca, kata baku; terapkan langsung' },
+      { key: 'keselarasan', label: 'Keselarasan antarbab', desc: 'Rumusan, tujuan, metode, hasil, dan kesimpulan saling menjawab' },
+      { key: 'tanggapi', label: 'Tanggapi catatan dosen', desc: 'Maksud catatan, langkah perbaikan, dan draf balasan' },
+    ],
+  },
+  {
+    judul: 'Rujukan',
+    items: [
+      { key: 'jurnal', label: 'Cari jurnal', desc: 'Literatur relevan dengan DOI dari Crossref' },
+      { key: 'cocok', label: 'Cocokkan rujukan', desc: 'Klaim tanpa sitasi dicocokkan dengan pustaka Anda' },
+      { key: 'tabel', label: 'Tabel penelitian terdahulu', desc: 'Metode, hasil, dan perbedaan dari rujukan terpilih' },
+    ],
+  },
+  {
+    judul: 'Ujian',
+    items: [{ key: 'persiapan', label: 'Persiapan seminar', desc: 'Perkiraan pertanyaan penguji dan kerangka slide' }],
+  },
+];
+
+const ALL = MENU.flatMap((g) => g.items);
 
 export function AisysPanel({
   editor,
   thesisId,
   judul,
+  jenjang,
   refs,
   onRefs,
   flush,
+  catatan,
+  onReplied,
 }: {
   editor: Editor;
   thesisId: string;
   judul: string;
+  jenjang: string;
   refs: Reference[];
   onRefs: (r: Reference[]) => void;
   flush: () => Promise<void>;
+  catatan: CatatanDosen[];
+  onReplied: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>('tulis');
+  const [view, setView] = useState<Fitur | null>(null);
+  // Fitur yang pernah dibuka tetap terpasang agar hasilnya tidak hilang saat berpindah.
+  const [opened, setOpened] = useState<Fitur[]>([]);
+  const [seed, setSeed] = useState<{ text: string; n: number } | null>(null);
   const status = useStatus();
   const off = status.st && !status.st.aktif;
+  const go = (k: Fitur | null) => {
+    setView(k);
+    if (k) setOpened((o) => (o.includes(k) ? o : [...o, k]));
+  };
+  const cur = ALL.find((f) => f.key === view);
+  const common = { editor, thesisId, flush, onSisa: status.update };
+
+  const body = (k: Fitur) => {
+    switch (k) {
+      case 'tulis':
+        return <TulisTab editor={editor} thesisId={thesisId} onSisa={status.update} />;
+      case 'jurnal':
+        return <JurnalTab editor={editor} thesisId={thesisId} judul={judul} refs={refs} onRefs={onRefs} onSisa={status.update} seed={seed} />;
+      case 'periksa':
+        return <PeriksaTab {...common} />;
+      case 'kerangka':
+        return <KerangkaTab {...common} />;
+      case 'abstrak':
+        return <AbstrakTab {...common} />;
+      case 'ejaan':
+        return <EjaanTab {...common} />;
+      case 'keselarasan':
+        return <KeselarasanTab {...common} />;
+      case 'tanggapi':
+        return <TanggapiTab editor={editor} thesisId={thesisId} catatan={catatan} onSisa={status.update} onReplied={onReplied} />;
+      case 'cocok':
+        return (
+          <CocokTab
+            {...common}
+            refs={refs}
+            onCari={(text) => {
+              setSeed({ text, n: Date.now() });
+              go('jurnal');
+            }}
+          />
+        );
+      case 'tabel':
+        return <TabelTab {...common} refs={refs} />;
+      case 'persiapan':
+        return <PersiapanTab thesisId={thesisId} jenjang={jenjang} flush={flush} onSisa={status.update} />;
+    }
+  };
 
   return (
     <aside className="nk-comments nk-ai" aria-label="AISYS">
       <div className="nk-comments-head">
         <div className="row-between">
-          <span className="strong">AISYS</span>
+          {cur ? (
+            <button type="button" className="link-btn small nk-ai-back" onClick={() => go(null)}>
+              <IconArrowLeft size={14} /> Semua fitur
+            </button>
+          ) : (
+            <span className="strong">AISYS</span>
+          )}
           <Quota st={status.st} />
         </div>
-        <div className="nk-seg" role="tablist">
-          {(
-            [
-              ['tulis', 'Tulis'],
-              ['jurnal', 'Cari jurnal'],
-              ['periksa', 'Periksa bab'],
-            ] as [Tab, string][]
-          ).map(([v, l]) => (
-            <button key={v} type="button" role="tab" aria-selected={tab === v} className={tab === v ? 'on' : ''} onClick={() => setTab(v)}>
-              {l}
-            </button>
-          ))}
-        </div>
+        {cur && <div className="strong">{cur.label}</div>}
       </div>
       <div className="nk-comments-body">
         {status.err && <div className="note bad small nk-ai-pad">{status.err}</div>}
         {off && <div className="note small nk-ai-pad">AISYS belum diaktifkan. Admin perlu mengisi kunci API AISYS pada server SIMSA.</div>}
-        {/* Semua tab tetap terpasang agar hasil tidak hilang saat berpindah tab. */}
-        <div hidden={tab !== 'tulis'}>
-          <TulisTab editor={editor} thesisId={thesisId} onSisa={status.update} />
-        </div>
-        <div hidden={tab !== 'jurnal'}>
-          <JurnalTab editor={editor} thesisId={thesisId} judul={judul} refs={refs} onRefs={onRefs} onSisa={status.update} />
-        </div>
-        <div hidden={tab !== 'periksa'}>
-          <PeriksaTab editor={editor} thesisId={thesisId} flush={flush} onSisa={status.update} />
-        </div>
+        {!view && (
+          <nav className="nk-ai-menu" aria-label="Fitur AISYS">
+            {MENU.map((g) => (
+              <section key={g.judul}>
+                <div className="nk-ai-menu-head">{g.judul}</div>
+                <ul>
+                  {g.items.map((f) => (
+                    <li key={f.key}>
+                      <button type="button" onClick={() => go(f.key)}>
+                        <span className="nk-ai-menu-label">
+                          {f.label}
+                          {f.key === 'tanggapi' && catatan.length > 0 && <span className="nk-rail-count">{catatan.length}</span>}
+                        </span>
+                        <span className="nk-ai-menu-desc">{f.desc}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+            <div className="nk-ai-pad">
+              <Disclaimer>AISYS membantu seperti peneliti senior: memberi arahan, memeriksa, dan menyusun bahan. Isi dan keputusan naskah tetap tanggung jawab Anda.</Disclaimer>
+            </div>
+          </nav>
+        )}
+        {opened.map((k) => (
+          <div key={k} hidden={view !== k}>
+            {body(k)}
+          </div>
+        ))}
       </div>
     </aside>
-  );
-}
-
-interface Snap {
-  from: number;
-  to: number;
-  text: string;
-}
-
-function selectionInfo(editor: Editor) {
-  const { from, to, empty } = editor.state.selection;
-  if (empty) return { from, to, text: '', citations: false };
-  let citations = false;
-  editor.state.doc.nodesBetween(from, to, (n) => {
-    if (n.type.name === 'citation') citations = true;
-  });
-  return { from, to, text: editor.state.doc.textBetween(from, to, '\n\n', ' ').trim(), citations };
-}
-
-/** Konteks tulisan di posisi kursor: judul bab, subbab, dan paragraf sebelumnya. */
-function contextAt(editor: Editor, pos: number) {
-  let bab = '';
-  let subbab = '';
-  let sebelum = '';
-  editor.state.doc.forEach((n, offset) => {
-    if (offset >= pos) return;
-    if (n.type.name === 'heading') {
-      if (n.attrs.level === 1) {
-        bab = n.textContent;
-        subbab = '';
-      } else if (n.attrs.level === 2) subbab = n.textContent;
-      sebelum = '';
-    } else if (n.type.name === 'paragraph' && n.textContent.trim() && !n.attrs.keterangan) sebelum = n.textContent;
-  });
-  return { bab, subbab, sebelum };
-}
-
-function insertParagraphsAfter(editor: Editor, pos: number, text: string) {
-  const $pos = editor.state.doc.resolve(Math.min(pos, editor.state.doc.content.size));
-  // Sisipkan setelah blok tingkat atas yang memuat posisi.
-  const after = $pos.depth >= 1 ? $pos.after(1) : editor.state.doc.content.size;
-  const paras = text
-    .split(/\n{2,}/)
-    .map((p) => p.replace(/\s*\n\s*/g, ' ').trim())
-    .filter(Boolean)
-    .map((p) => ({ type: 'paragraph', content: [{ type: 'text', text: p }] }));
-  editor.chain().focus().insertContentAt(after, paras).run();
-}
-
-function copy(text: string, toast: ReturnType<typeof useToast>) {
-  navigator.clipboard?.writeText(text).then(
-    () => toast.show('Disalin', 'ok'),
-    () => toast.show('Tidak dapat menyalin', 'bad'),
   );
 }
 
@@ -395,6 +381,7 @@ function JurnalTab({
   refs,
   onRefs,
   onSisa,
+  seed,
 }: {
   editor: Editor;
   thesisId: string;
@@ -402,10 +389,14 @@ function JurnalTab({
   refs: Reference[];
   onRefs: (r: Reference[]) => void;
   onSisa: (n: number | null) => void;
+  seed?: { text: string; n: number } | null;
 }) {
   const toast = useToast();
   const sel = selectionInfo(editor);
-  const [topik, setTopik] = useState('');
+  const [topik, setTopik] = useState(seed?.text ?? '');
+  useEffect(() => {
+    if (seed) setTopik(seed.text);
+  }, [seed]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [res, setRes] = useState<{ kueri: string[]; items: { work: Parameters<typeof crossrefToCsl>[0]; alasan: string }[] } | null>(null);

@@ -10,6 +10,7 @@ import { fmtDateTime } from '../../lib/format';
 import { BRAND } from '../../lib/brand';
 import { usePref, useRegisterEntity } from '../../lib/shell';
 import { naskahExtensions } from '../../lib/naskah/extensions';
+import { babRanges } from '../../lib/naskah/kunci';
 import { analyzeBlocks, countWords, initialDoc, type PmNode } from '../../lib/naskah/struktur';
 import { anchorComments, babState, loadReviewData, threads } from '../../lib/naskah/review';
 import { CommentPanel } from './CommentPanel';
@@ -243,12 +244,14 @@ function NaskahWorkspace({
   const { userId } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [citeMode, setCiteMode] = useState<CiteMode | null>(null);
+  const blockedRef = useRef<(bab: number) => void>(() => {});
   const extensions = useMemo(
     () =>
       naskahExtensions({
         imageView,
         onCommentClick: (id) => setActiveId(id),
         onCitationClick: (pos, a) => setCiteMode({ kind: 'edit', pos, ...a }),
+        onBabBlocked: (bab) => blockedRef.current(bab),
       }),
     [],
   );
@@ -271,9 +274,29 @@ function NaskahWorkspace({
   const revRef = useRef<number | null>(revisi);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saving = useRef<Promise<void> | null>(null);
+  const rvReload = useRef<() => void>(() => {});
   const dirty = useRef(false);
   const [save, setSave] = useState<SaveState>('tersimpan');
   const [savedAt, setSavedAt] = useState<string | null>(updatedAt);
+
+  /** Kembalikan satu bab ke isi yang tersimpan di server (dipakai bila bab terkunci saat sedang disunting). */
+  const restoreBab = async (bab: number): Promise<boolean> => {
+    if (!editor) return false;
+    try {
+      const row = (await must(supabase.from('thesis_manuscripts').select('konten, revisi').eq('thesis_id', thesis.id).maybeSingle())) as { konten: PmNode; revisi: number } | null;
+      if (!row) return false;
+      const server = editor.schema.nodeFromJSON(row.konten);
+      const src = babRanges(server).find((r) => r.bab === bab);
+      const dst = babRanges(editor.state.doc).find((r) => r.bab === bab);
+      if (!src || !dst) return false;
+      const tr = editor.state.tr.replaceWith(dst.from, dst.to, server.slice(src.from, src.to).content);
+      editor.view.dispatch(tr.setMeta('kunciLewati', true));
+      revRef.current = row.revisi;
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   const doSave = useCallback(async (): Promise<void> => {
     if (!editor || !canEdit) return;
@@ -293,7 +316,16 @@ function NaskahWorkspace({
       } catch (e) {
         const msg = (e as Error).message;
         dirty.current = true;
-        if (msg.startsWith('KONFLIK')) {
+        if (msg.startsWith('TERKUNCI')) {
+          // Kunci berubah sejak halaman dibuka (mis. pembimbing baru memberi ACC): muat status kunci terbaru.
+          setSave('gagal');
+          rvReload.current();
+          const bab = Number(/Bab (\d+)/.exec(msg)?.[1]);
+          if (bab && (await restoreBab(bab))) {
+            toast.show(`Bab ${bab} baru saja di-ACC Pembimbing 1 dan 2 dan terkunci. Isi bab itu dikembalikan ke versi yang di-ACC; perubahan lain tetap disimpan.`, 'bad');
+            timer.current = setTimeout(() => void doSave(), 300);
+          } else toast.show(msg.replace(/^TERKUNCI:\s*/, ''), 'bad');
+        } else if (msg.startsWith('KONFLIK')) {
           setSave('konflik');
           const ok = await dialog.confirm({
             title: 'Naskah diubah di tempat lain',
@@ -309,7 +341,7 @@ function NaskahWorkspace({
     saving.current = run;
     await run;
     saving.current = null;
-  }, [editor, canEdit, thesis.id, dialog]);
+  }, [editor, canEdit, thesis.id, dialog, toast]);
 
   useEffect(() => {
     if (!editor || !canEdit) return;
@@ -416,6 +448,7 @@ function NaskahWorkspace({
 
   /* ---------- review: pengajuan dan komentar ---------- */
   const rv = useAsync(() => loadReviewData(thesis.id), [thesis.id]);
+  rvReload.current = rv.reload;
   const [ajukanOpen, setAjukanOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const isOwner = thesis.mahasiswa_id === userId;
@@ -423,6 +456,16 @@ function NaskahWorkspace({
   const commentMode: 'mahasiswa' | 'dosen' | 'baca' = isOwner ? 'mahasiswa' : myPeran ? 'dosen' : 'baca';
   const commentList = useMemo(() => threads((rv.data?.comments ?? []).filter((c) => c.terkirim)), [rv.data]);
   const activeCount = commentList.filter((t) => t.root.status !== 'selesai').length;
+  const catatanDosen = useMemo(
+    () =>
+      commentList
+        .filter((t) => t.root.status !== 'selesai' && t.root.penulis_id !== thesis.mahasiswa_id)
+        .map((t) => {
+          const p = rv.data?.peran.get(t.root.penulis_id);
+          return { id: t.root.id, bab: t.root.bab, isi: t.root.isi, kutipan: t.root.kutipan, status: t.root.status, penulis: p === 'P1' ? 'Pembimbing 1' : p === 'P2' ? 'Pembimbing 2' : t.root.penulis?.nama ?? 'Dosen' };
+        }),
+    [commentList, rv.data, thesis.mahasiswa_id],
+  );
   /* ---------- tata letak ruang kerja ---------- */
   type Side = 'catatan' | 'pustaka' | 'aisys';
   const [sideChoice, setSide] = useState<Side | null | undefined>(undefined);
@@ -460,6 +503,13 @@ function NaskahWorkspace({
     setActiveId(id);
     editor?.view.dom.querySelector(`[data-cmt="${id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
+
+  /* ---------- kunci bab ---------- */
+  const lockedBab = useMemo(() => [...(rv.data?.kunci.values() ?? [])].filter((k) => k.terkunci).map((k) => k.bab), [rv.data]);
+  useEffect(() => {
+    if (editor && canEdit) editor.commands.setBabTerkunci(lockedBab);
+  }, [editor, canEdit, lockedBab]);
+  blockedRef.current = (bab) => toast.show(`Bab ${bab} sudah di-ACC Pembimbing 1 dan 2 sehingga terkunci. Lanjutkan ke bab berikutnya.`, 'bad');
 
   const latestPerBab = useMemo(() => {
     const m = new Map<number, ReturnType<typeof babState>>();
@@ -603,7 +653,19 @@ function NaskahWorkspace({
         {side && (
           <SideDock width={sideW} onWidth={setSideW} label={side === 'catatan' ? 'catatan' : side === 'pustaka' ? 'pustaka' : 'AISYS'}>
             {side === 'pustaka' && pk.refs && <PustakaPanel editor={editor} refs={pk.refs} style={pk.style} canEdit={canEdit} onRefs={pk.setRefs} onAdd={() => setCiteMode({ kind: 'add' })} />}
-            {side === 'aisys' && canEdit && pk.refs && <AisysPanel editor={editor} thesisId={thesis.id} judul={thesis.judul} refs={pk.refs} onRefs={pk.setRefs} flush={flush} />}
+            {side === 'aisys' && canEdit && pk.refs && (
+              <AisysPanel
+                editor={editor}
+                thesisId={thesis.id}
+                judul={thesis.judul}
+                jenjang={thesis.jenjang}
+                refs={pk.refs}
+                onRefs={pk.setRefs}
+                flush={flush}
+                catatan={catatanDosen}
+                onReplied={rv.reload}
+              />
+            )}
             {side === 'catatan' && rv.data && (
               <CommentPanel
                 list={commentList}

@@ -78,8 +78,8 @@ export function navFor(role: AppRole | undefined, c: NavCounts): NavSection[] {
               icon: <IconFlag />,
               children: [
                 { to: '/studi-akhir', label: 'Milestone', isDefault: true },
-                { to: '/studi-akhir?tab=bimbingan', label: 'Riwayat bimbingan' },
-                { to: '/studi-akhir?tab=draf', label: 'Draf' },
+                { to: '/studi-akhir?tab=bimbingan', label: 'Sesi bimbingan' },
+                { to: '/studi-akhir?tab=draf', label: 'Berkas draf (cadangan)' },
                 { to: '/studi-akhir?tab=ujian', label: 'Ujian' },
                 { to: '/studi-akhir?tab=riwayat', label: 'Riwayat perubahan' },
               ],
@@ -218,8 +218,8 @@ export function thesisNav(base: string): NavItem[] {
   return [
     { to: base, label: 'Ringkasan dan milestone', icon: <IconOverview />, isDefault: true },
     { to: `/naskah/${base.split('/').pop()}`, label: 'Naskah', icon: <IconManuscript /> },
-    { to: `${base}?tab=bimbingan`, label: 'Bimbingan', icon: <IconChat /> },
-    { to: `${base}?tab=draf`, label: 'Draf', icon: <IconFile /> },
+    { to: `${base}?tab=bimbingan`, label: 'Sesi bimbingan', icon: <IconChat /> },
+    { to: `${base}?tab=draf`, label: 'Berkas draf (cadangan)', icon: <IconFile /> },
     { to: `${base}?tab=ujian`, label: 'Ujian', icon: <IconExam /> },
     { to: `${base}?tab=riwayat`, label: 'Riwayat perubahan', icon: <IconHistory /> },
   ];

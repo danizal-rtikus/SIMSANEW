@@ -101,7 +101,8 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
   const myPeran = userId ? data.peran.get(userId) : undefined;
   const isOwner = thesis.mahasiswa_id === userId;
   const mode: 'mahasiswa' | 'dosen' | 'baca' = isOwner ? 'mahasiswa' : myPeran ? 'dosen' : 'baca';
-  const canComment = !!myPeran && sub.status !== 'ditarik';
+  const kunci = data.kunci.get(sub.bab);
+  const revisiAktif = !!kunci?.revisi_aktif;
 
   const babSubs = data.submissions.filter((s) => s.bab === sub.bab);
   const nomorPengajuan = new Map<string, number>(babSubs.map((s) => [s.id, s.nomor]));
@@ -114,6 +115,10 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
   const reviews = data.reviews.filter((r) => r.submission_id === sub.id);
   const myReview = reviews.find((r) => r.dosen_id === userId);
   const accEarlier = !!userId && (d.approvals.some((a) => a.dosen_id === userId) || data.reviews.some((r) => r.dosen_id === userId && r.hasil === 'acc' && babSubs.some((s) => s.id === r.submission_id)));
+  // Pembimbing yang sudah ACC bab ini tidak dapat berkomentar lagi, kecuali saat revisi seminar berjalan.
+  const sayaAcc = !!kunci?.saya_acc || accEarlier || myReview?.hasil === 'acc';
+  const komentarTerkunci = !!myPeran && sayaAcc && !revisiAktif;
+  const canComment = !!myPeran && sub.status !== 'ditarik' && !komentarTerkunci;
   const isLatest = !babSubs.some((s) => s.nomor > sub.nomor && s.status !== 'ditarik');
   const canDecide = !!myPeran && !myReview && !accEarlier && isLatest && sub.status === 'diajukan';
   const draftMode = !!myPeran && sub.status === 'diajukan' && !myReview && !accEarlier;
@@ -284,7 +289,9 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
           {myReview
             ? `Keputusan Anda: ${myReview.hasil === 'acc' ? 'ACC' : 'Revisi'} (${fmtDateTime(myReview.created_at)}), kode ${myReview.kode}.`
             : accEarlier
-              ? 'Anda sudah memberi ACC untuk bab ini. Komentar tambahan langsung terlihat oleh mahasiswa.'
+              ? komentarTerkunci
+                ? `Anda sudah ACC Bab ${sub.bab}. Komentar untuk bab ini terkunci.`
+                : `Anda sudah ACC Bab ${sub.bab}. Kunci dibuka selama revisi seminar; komentar langsung terlihat oleh mahasiswa.`
               : !isLatest
                 ? 'Keputusan diberikan pada pengajuan terbaru.'
                 : 'Pengajuan ini sudah ditutup.'}
@@ -369,6 +376,11 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
         <div className="nk-review" style={sideStyle(sideW)}>
           <div className="nk-paper-wrap" ref={wrapRef} onMouseUp={onMouseUp} style={{ position: 'relative' }}>
             {canComment && <div className="nk-hint small muted">Blok teks di naskah untuk memberi komentar.</div>}
+            {komentarTerkunci && sub.status !== 'ditarik' && (
+              <div className="nk-hint small muted">
+                Anda sudah ACC Bab {sub.bab}. Komentar untuk bab ini terkunci{kunci?.terkunci ? '; naskah bab ini juga terkunci untuk mahasiswa (ACC P1 dan P2)' : ''}.
+              </div>
+            )}
             <EditorContent editor={editor} className="nk-paper" />
             {pending && (
               <button type="button" className="btn btn-sm btn-primary nk-float" style={{ top: pending.top, left: pending.left }} onMouseDown={(e) => e.preventDefault()} onClick={startComment}>

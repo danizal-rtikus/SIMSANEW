@@ -10,6 +10,7 @@ import { Button, ErrorNote, Field, Loading, PageHeader, Panel } from '../../comp
 import { TitleBadge } from '../../components/StatusBits';
 import { Modal, useDialog } from '../../components/Dialog';
 import { useToast } from '../../components/Toast';
+import { ProposeTitleModal, TitleDirections, TitleRequestList, useTitleRequests } from '../../components/TitleRequest';
 
 interface Similar {
   sumber: string;
@@ -137,6 +138,11 @@ function RegisterForm({ userId, onDone }: { userId: string; onDone: () => void }
 
 function CurrentTitle({ thesis, onChanged }: { thesis: Thesis; onChanged: () => void }) {
   const toast = useToast();
+  const { userId } = useAuth();
+  const tr = useTitleRequests(thesis.id);
+  const [proposeOpen, setProposeOpen] = useState(false);
+  const sudahSeminar = !!tr.data?.sudahSeminar;
+  const pendingReq = tr.data?.pending ?? null;
   const [open, setOpen] = useState(false);
   const [judul, setJudul] = useState(thesis.judul);
   const [alasan, setAlasan] = useState('');
@@ -180,21 +186,65 @@ function CurrentTitle({ thesis, onChanged }: { thesis: Thesis; onChanged: () => 
               Lihat sinopsis
             </Button>
           )}
-          <Button
-            size="sm"
-            onClick={() => {
-              setJudul(thesis.judul);
-              setAlasan('');
-              setErr(null);
-              setOpen(true);
-            }}
-          >
-            Ubah judul
-          </Button>
+          {thesis.status === 'aktif' && tr.data && !sudahSeminar && (
+            <Button
+              size="sm"
+              onClick={() => {
+                setJudul(thesis.judul);
+                setAlasan('');
+                setErr(null);
+                setOpen(true);
+              }}
+            >
+              Ubah judul
+            </Button>
+          )}
+          {thesis.status === 'aktif' && sudahSeminar && !pendingReq && (
+            <Button size="sm" onClick={() => setProposeOpen(true)}>
+              Usulkan judul baru
+            </Button>
+          )}
         </>
       }
     >
       <div className="strong" style={{ fontSize: 17 }}>{thesis.judul}</div>
+      {tr.data && (
+        <div className="small muted" style={{ marginTop: 4 }}>
+          {sudahSeminar
+            ? 'Seminar sudah dilaksanakan. Perubahan judul diajukan sebagai usulan dan berlaku setelah disetujui Pembimbing 1 dan 2.'
+            : 'Sebelum seminar, Anda masih dapat mengubah judul langsung. Pembimbing menerima pemberitahuan.'}
+        </div>
+      )}
+      {tr.data && tr.data.directions.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <TitleDirections list={tr.data.directions} />
+        </div>
+      )}
+      {tr.data && tr.data.requests.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          <div className="label">Usulan judul</div>
+          <TitleRequestList
+            requests={tr.data.requests}
+            mode="mahasiswa"
+            myId={userId}
+            onChanged={() => {
+              tr.reload();
+              onChanged();
+            }}
+          />
+        </div>
+      )}
+      <ProposeTitleModal
+        key={String(proposeOpen)}
+        open={proposeOpen}
+        thesisId={thesis.id}
+        current={thesis.judul}
+        onClose={() => setProposeOpen(false)}
+        onDone={() => {
+          setProposeOpen(false);
+          tr.reload();
+        }}
+      />
       {(hist.data ?? []).length > 0 && (
         <div style={{ marginTop: 14 }}>
           <div className="label">Riwayat perubahan judul</div>

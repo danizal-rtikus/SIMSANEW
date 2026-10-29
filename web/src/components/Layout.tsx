@@ -183,6 +183,8 @@ export function Layout() {
     return () => window.removeEventListener('simsa:theme', on);
   }, []);
 
+  // Nomor induk yang tampil di profil sidebar: NIM untuk mahasiswa, NIDN untuk dosen.
+  const idNo = profile?.nim || profile?.nidn || '';
   const roleLabel = (r: { role: string; prodi_id: string | null }) => {
     const kode = prodiList.find((p) => p.id === r.prodi_id)?.kode;
     return `${ROLE_LABEL[r.role as keyof typeof ROLE_LABEL]}${kode ? ` ${kode}` : ''}`;
@@ -392,8 +394,95 @@ export function Layout() {
         </nav>
 
         <div className="sb-foot">
+          <Dropdown
+            align="up"
+            className="sb-me"
+            trigger={(open, toggle) => (
+              <button
+                className="sb-me-btn"
+                onClick={toggle}
+                aria-expanded={open}
+                aria-haspopup="menu"
+                aria-label={`Akun: ${profile?.nama ?? ''}${active ? `, ${roleLabel(active)}` : ''}`}
+                title={isCollapsed ? `${profile?.nama ?? ''}${idNo ? ` (${idNo})` : ''}, ${active ? roleLabel(active) : ''}` : undefined}
+              >
+                <span className="sb-me-avatar" aria-hidden>
+                  {initials(profile?.nama) || <IconUserCircle size={16} />}
+                </span>
+                <span className="sb-me-text">
+                  <span className="sb-me-name">{profile?.nama}</span>
+                  <span className="sb-me-sub">
+                    {idNo && <span className="mono-num">{idNo}</span>}
+                    {idNo && active && <span aria-hidden> · </span>}
+                    {active && roleLabel(active)}
+                  </span>
+                </span>
+              </button>
+            )}
+          >
+            {(close) => (
+              <>
+                <div className="dd-user">
+                  <div className="strong">{profile?.nama}</div>
+                  <div className="muted small">
+                    {idNo ? `${profile?.nim ? 'NIM' : 'NIDN'} ${idNo} · ` : ''}
+                    {profile?.email}
+                  </div>
+                </div>
+                <div className="dd-sep" />
+                <button
+                  className="dd-item"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    navigate('/profil');
+                  }}
+                >
+                  <span>Profil</span>
+                </button>
+                {roles.length > 1 && (
+                  <>
+                    <div className="dd-head">Ganti peran</div>
+                    {roles.map((r) => {
+                      const on = active && roleKey(r) === roleKey(active);
+                      return (
+                        <button
+                          key={roleKey(r)}
+                          className="dd-item"
+                          role="menuitemradio"
+                          aria-checked={!!on}
+                          onClick={() => {
+                            close();
+                            if (!on) {
+                              setActive(r);
+                              navigate('/');
+                            }
+                          }}
+                        >
+                          <span>{roleLabel(r)}</span>
+                          {on && <IconCheck size={16} />}
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+                <div className="dd-sep" />
+                <button
+                  className="dd-item"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    doSignOut();
+                  }}
+                >
+                  <span>Keluar</span>
+                  <IconLogout size={16} />
+                </button>
+              </>
+            )}
+          </Dropdown>
           <button
-            className="icon-btn"
+            className="icon-btn sb-collapse"
             onClick={() => {
               setPeek(false);
               setCollapsed(!collapsed);

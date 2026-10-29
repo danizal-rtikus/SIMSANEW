@@ -102,7 +102,10 @@ interface TemplateRow {
   bobot: number;
   durasi_hari: number;
   aktif: boolean;
+  fase: string | null;
 }
+
+const FASE_SARAN = ['Persiapan', 'Proposal', 'Hasil penelitian', 'Pendadaran', 'Penulisan', 'Ujian', 'Kelulusan'];
 
 const KIND_LABEL: Record<MilestoneKind, string> = {
   judul: 'Otomatis: pendaftaran diterima',
@@ -206,6 +209,7 @@ export function TemplateEditor({ prodiId, jenjang, canManage }: { prodiId: strin
           <thead>
             <tr>
               <th>No</th>
+              <th>Fase</th>
               <th>Milestone</th>
               <th>Bukti penyelesaian</th>
               <th>Cara selesai</th>
@@ -219,6 +223,13 @@ export function TemplateEditor({ prodiId, jenjang, canManage }: { prodiId: strin
               return (
                 <tr key={r.id}>
                   <td className="mono-num">{r.urutan}</td>
+                  <td className="small" style={{ width: 150 }}>
+                    {editable ? (
+                      <input list="fase-saran" value={e.fase ?? r.fase ?? ''} onChange={(ev) => set(r.id, { fase: ev.target.value })} aria-label={`Fase ${r.nama}`} />
+                    ) : (
+                      r.fase
+                    )}
+                  </td>
                   <td>{editable ? <input value={e.nama ?? r.nama} onChange={(ev) => set(r.id, { nama: ev.target.value })} /> : r.nama}</td>
                   <td className="small">{editable ? <input value={e.bukti ?? r.bukti} onChange={(ev) => set(r.id, { bukti: ev.target.value })} /> : r.bukti}</td>
                   <td className="small muted">{KIND_LABEL[r.jenis]}</td>
@@ -234,8 +245,13 @@ export function TemplateEditor({ prodiId, jenjang, canManage }: { prodiId: strin
           </tbody>
         </table>
       </div>
+      <datalist id="fase-saran">
+        {FASE_SARAN.map((f) => (
+          <option key={f} value={f} />
+        ))}
+      </datalist>
       <div className="small muted" style={{ padding: '10px 18px' }}>
-        Total bobot {total}. Persentase progres dihitung dari bobot milestone yang selesai dibagi total bobot. Perubahan berlaku untuk mahasiswa yang judulnya disetujui setelah ini.
+        Milestone berurutan dengan fase yang sama dikelompokkan dalam satu fase. Fase kosong diisi otomatis sesuai kode milestone. Total bobot {total}. Persentase progres dihitung dari bobot milestone yang selesai dibagi total bobot. Perubahan berlaku untuk mahasiswa yang judulnya disetujui setelah ini.
       </div>
     </Panel>
   );

@@ -12,6 +12,7 @@ import { Badge, Button, ErrorNote, Facts, Field, Loading, PageHeader, Panel } fr
 import { Modal, useDialog } from '../../components/Dialog';
 import { useToast } from '../../components/Toast';
 import { EXAM_SELECT } from './UjianList';
+import { TitleRequestList, useTitleRequests } from '../../components/TitleRequest';
 
 interface Score {
   dosen_id: string;
@@ -206,6 +207,10 @@ export function UjianDetail() {
           </Panel>
         )}
         {e.status === 'dijadwalkan' && !allScored && me?.ketua && <div className="note small">Keputusan hasil dapat diambil setelah seluruh dosen panel mengisi penilaian.</div>}
+
+        {examHasRevision(e.jenis) && (e.status === 'dijadwalkan' || e.status === 'selesai') && e.hasil !== 'mengulang' && (me || panel.some((p) => p.ubah_judul)) && (
+          <ExamTitle exam={e} panel={panel} me={me ?? null} isOwner={isOwner} onChanged={st.reload} />
+        )}
 
         {e.status === 'selesai' && scores.length > 0 && <ScoreTable items={items} panel={panel} scores={scores} />}
 
@@ -505,3 +510,94 @@ function ScheduleModal({ open, exam, panel, onClose, onDone }: { open: boolean; 
   );
 }
 
+
+/** Arahan perubahan judul dari panel dan status usulan judul mahasiswa. */
+function ExamTitle({ exam, panel, me, isOwner, onChanged }: { exam: Exam; panel: PanelMember[]; me: PanelMember | null; isOwner: boolean; onChanged: () => void }) {
+  const dialog = useDialog();
+  const toast = useToast();
+  const { userId } = useAuth();
+  const tr = useTitleRequests(exam.thesis_id);
+  const flagged = panel.filter((p) => p.ubah_judul);
+  const closed = !!exam.revisi_selesai_at;
+  const after = exam.tanggal ?? exam.created_at;
+  const reqs = (tr.data?.requests ?? []).filter((r) => new Date(r.created_at) >= new Date(after) && r.status !== 'dibatalkan');
+  const approved = reqs.some((r) => r.status === 'disetujui');
+
+  const setFlag = async (perlu: boolean) => {
+    let arahan: string | null = null;
+    if (perlu) {
+      arahan = await dialog.prompt({
+        title: 'Minta perubahan judul',
+        message: 'Mahasiswa mengusulkan judul baru sesuai arahan ini. Revisi baru dapat dinyatakan selesai setelah judul baru disetujui Pembimbing 1 dan 2.',
+        label: 'Arahan perubahan judul',
+        multiline: true,
+        required: true,
+        initial: me?.arahan_judul ?? '',
+        confirmLabel: 'Simpan arahan',
+      });
+      if (arahan === null) return;
+    } else {
+      const ok = await dialog.confirm({ title: 'Batalkan permintaan perubahan judul?', message: 'Judul tidak wajib diubah untuk menyelesaikan revisi.', confirmLabel: 'Batalkan permintaan' });
+      if (!ok) return;
+    }
+    try {
+      await rpc('arahan_judul_ujian', { p_exam: exam.id, p_perlu: perlu, p_arahan: arahan });
+      toast.show(perlu ? 'Arahan perubahan judul dikirim ke mahasiswa' : 'Permintaan perubahan judul dibatalkan', 'ok');
+      onChanged();
+    } catch (err) {
+      toast.show((err as Error).message, 'bad');
+    }
+  };
+
+  return (
+    <Panel
+      title="Judul"
+      sub={
+        flagged.length
+          ? approved
+            ? 'Judul baru sudah disetujui Pembimbing 1 dan 2.'
+            : 'Panel meminta perubahan judul. Revisi selesai setelah judul baru disetujui Pembimbing 1 dan 2.'
+          : 'Tandai bila judul perlu diubah sebagai bagian dari revisi.'
+      }
+      actions={
+        me && !closed ? (
+          me.ubah_judul ? (
+            <>
+              <Button size="sm" variant="ghost" onClick={() => setFlag(false)}>
+                Batalkan permintaan
+              </Button>
+              <Button size="sm" onClick={() => setFlag(true)}>
+                Ubah arahan
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" onClick={() => setFlag(true)}>
+              Perlu perubahan judul
+            </Button>
+          )
+        ) : undefined
+      }
+    >
+      <div className="stack-sm">
+        <div className="small">
+          Judul saat ini: <span className="strong">{exam.thesis?.judul}</span>
+        </div>
+        {flagged.length > 0 && (
+          <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
+            {flagged.map((p) => (
+              <li key={p.id}>
+                {p.arahan_judul} <span className="muted">({p.dosen?.nama})</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {reqs.length > 0 && <TitleRequestList requests={reqs} mode={isOwner ? 'mahasiswa' : 'baca'} myId={userId} onChanged={tr.reload} />}
+        {isOwner && flagged.length > 0 && !approved && !reqs.some((r) => r.status === 'diajukan') && (
+          <div className="note info small">
+            Ajukan judul baru di halaman <Link to="/judul">Pendaftaran TA</Link>.
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}

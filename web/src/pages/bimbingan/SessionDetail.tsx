@@ -188,9 +188,33 @@ export function SessionDetail({ id: propId, embedded, onClose, onChanged }: { id
             s.status === 'ditolak' && s.alasan_status && <div className="note bad">Alasan penolakan: {s.alasan_status}</div>
           )}
 
+          <Panel title="Bab yang dibahas" sub="Pengajuan bab dari Naskah. Komentar dan ACC diberikan di halaman review bab.">
+            {s.submission ? (
+              <div className="row-between" style={{ gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div className="strong">
+                    Bab {s.submission.bab} {s.submission.judul}
+                  </div>
+                  <div className="small muted">
+                    Pengajuan ke-{s.submission.nomor}, {s.submission.status === 'acc' ? 'ACC' : s.submission.status === 'revisi' ? 'perlu revisi' : s.submission.status === 'ditarik' ? 'ditarik' : 'menunggu review'}
+                  </div>
+                </div>
+                <Link className="btn btn-sm" to={`/naskah/${s.thesis_id}/ajuan/${s.submission.id}`}>
+                  {isDosen ? 'Buka dan review bab' : 'Buka pengajuan bab'}
+                </Link>
+              </div>
+            ) : isMhs && (s.status === 'diajukan' || s.status === 'dijadwalkan') ? (
+              <LinkSubmission sessionId={s.id} thesisId={s.thesis_id} onDone={() => run(async () => undefined, 'Pengajuan bab ditautkan')} />
+            ) : (
+              <p className="muted small" style={{ margin: 0 }}>
+                Sesi ini tidak menautkan pengajuan bab.
+              </p>
+            )}
+          </Panel>
+
           <Panel
-            title="Draf"
-            sub={bab ? `Versi untuk ${bab}` : 'Tidak ada draf terlampir'}
+            title="Berkas draf (cadangan)"
+            sub={bab ? `Versi untuk ${bab}` : 'Untuk mahasiswa yang tidak menulis naskah di SIMSA'}
             actions={
               isMhs &&
               bab && (
@@ -203,7 +227,7 @@ export function SessionDetail({ id: propId, embedded, onClose, onChanged }: { id
           >
             {versions.length === 0 ? (
               <p className="muted small" style={{ padding: 18 }}>
-                Belum ada draf untuk sesi ini.
+                Tidak ada berkas draf untuk sesi ini.
               </p>
             ) : (
               <ul className="list">
@@ -571,5 +595,57 @@ function Comments({ sessionId, thesisId, comments, onChange, canWrite, userId }:
         </div>
       )}
     </Panel>
+  );
+}
+
+/** Mahasiswa menautkan pengajuan bab ke sesi yang belum berlangsung. */
+function LinkSubmission({ sessionId, thesisId, onDone }: { sessionId: string; thesisId: string; onDone: () => void }) {
+  const toast = useToast();
+  const [sel, setSel] = useState('');
+  const [busy, setBusy] = useState(false);
+  const subs = useAsync(
+    async () =>
+      (await must(supabase.from('chapter_submissions').select('id, bab, nomor, judul, status').eq('thesis_id', thesisId).neq('status', 'ditarik').order('created_at', { ascending: false }).limit(30))) as {
+        id: string;
+        bab: number;
+        nomor: number;
+        judul: string;
+        status: string;
+      }[],
+    [thesisId],
+  );
+  if (!subs.data?.length) {
+    return (
+      <p className="muted small" style={{ margin: 0 }}>
+        Belum ada bab yang diajukan dari Naskah. <Link to="/naskah">Buka Naskah</Link> lalu pilih Ajukan bab agar pembimbing dapat mengomentari isinya langsung.
+      </p>
+    );
+  }
+  const save = async () => {
+    if (!sel) return;
+    setBusy(true);
+    try {
+      await rpc('tautkan_pengajuan_sesi', { p_session: sessionId, p_submission: sel });
+      onDone();
+    } catch (e) {
+      toast.show((e as Error).message, 'bad');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+      <select value={sel} onChange={(e) => setSel(e.target.value)} style={{ flex: '1 1 260px' }} aria-label="Pengajuan bab">
+        <option value="">Pilih pengajuan bab</option>
+        {subs.data.map((x) => (
+          <option key={x.id} value={x.id}>
+            Bab {x.bab} {x.judul}, pengajuan ke-{x.nomor}
+          </option>
+        ))}
+      </select>
+      <Button size="sm" variant="primary" loading={busy} disabled={!sel} onClick={save}>
+        Tautkan
+      </Button>
+    </div>
   );
 }

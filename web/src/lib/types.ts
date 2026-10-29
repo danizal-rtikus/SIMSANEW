@@ -78,6 +78,8 @@ export interface Milestone {
   tenggat: string | null;
   selesai_at: string | null;
   catatan_bukti: string | null;
+  /** Fase tahapan (Persiapan, Proposal, ...). */
+  fase?: string | null;
 }
 
 export interface Progress {
@@ -139,6 +141,9 @@ export interface Session {
   dosen?: { nama: string } | null;
   mahasiswa?: { nama: string; nim: string | null } | null;
   milestone?: { nama: string } | null;
+  /** Pengajuan bab di Naskah yang dibahas pada sesi ini. */
+  submission_id?: string | null;
+  submission?: { id: string; bab: number; nomor: number; judul: string; status: string } | null;
 }
 
 export interface DocumentRow {
@@ -249,6 +254,9 @@ export interface PanelMember {
   kode_nilai: string | null;
   acc_revisi_at: string | null;
   kode_acc: string | null;
+  /** Penguji meminta perubahan judul (lihat arahan_judul_ujian). */
+  ubah_judul?: boolean;
+  arahan_judul?: string | null;
   dosen?: { nama: string } | null;
 }
 

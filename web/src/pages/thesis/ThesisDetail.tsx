@@ -10,6 +10,7 @@ import { DRAFT_TYPES, openFile, uploadDraft, validateDraft } from '../../lib/fil
 import type { Approval, Exam, Examiner, Milestone, MilestoneStatus } from '../../lib/types';
 import { Badge, Button, Empty, ErrorNote, Facts, Field, Loading, PageHeader, Panel, Progress, Tabs } from '../../components/ui';
 import { MilestoneToc } from '../../components/MilestoneToc';
+import { TitleDirections, TitleRequestList, useTitleRequests } from '../../components/TitleRequest';
 import { RiskLabel, ThesisBadge } from '../../components/StatusBits';
 import { Modal, useDialog } from '../../components/Dialog';
 import { useToast } from '../../components/Toast';
@@ -334,13 +335,14 @@ function ThesisView({ thesisId, self }: { thesisId: string; self?: boolean }) {
         </Panel>
 
         <div>
+          <ThesisTitleRequests thesisId={thesis.id} mode={isSupervisor ? 'pembimbing' : isOwner ? 'mahasiswa' : 'baca'} userId={userId ?? null} onChanged={st.reload} />
           <Tabs<Tab>
             value={tab}
             onChange={setTab}
             items={[
               { value: 'milestone', label: 'Milestone' },
-              { value: 'bimbingan', label: `Bimbingan (${sessions.length})` },
-              { value: 'draf', label: `Draf (${docs.length})` },
+              { value: 'bimbingan', label: `Sesi bimbingan (${sessions.length})` },
+              { value: 'draf', label: `Berkas draf, cadangan (${docs.length})` },
               { value: 'ujian', label: `Ujian (${exams.length})` },
               { value: 'riwayat', label: 'Riwayat perubahan' },
             ]}
@@ -629,5 +631,31 @@ function UploadModal({ open, milestones, onClose, onSubmit }: { open: boolean; m
         {err && <div className="note bad">{err}</div>}
       </div>
     </Modal>
+  );
+}
+
+/** Usulan perubahan judul yang menunggu tanggapan, beserta arahan penguji. */
+function ThesisTitleRequests({ thesisId, mode, userId, onChanged }: { thesisId: string; mode: 'pembimbing' | 'mahasiswa' | 'baca'; userId: string | null; onChanged: () => void }) {
+  const tr = useTitleRequests(thesisId);
+  const pending = tr.data?.pending;
+  const dirs = (tr.data?.directions ?? []).filter((d) => !d.selesai);
+  if (!pending && !dirs.length) return null;
+  return (
+    <Panel title="Perubahan judul" sub={pending ? 'Judul baru berlaku setelah Pembimbing 1 dan 2 menyetujui' : undefined} className="title-req-panel">
+      <div className="stack-sm">
+        <TitleDirections list={dirs} />
+        {pending && (
+          <TitleRequestList
+            requests={[pending]}
+            mode={mode}
+            myId={userId}
+            onChanged={() => {
+              tr.reload();
+              onChanged();
+            }}
+          />
+        )}
+      </div>
+    </Panel>
   );
 }

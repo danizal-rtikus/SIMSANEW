@@ -222,6 +222,17 @@ export function SessionTable({
 }
 
 /* ------------------------------------------------------------------ */
+interface SubOption {
+  id: string;
+  bab: number;
+  nomor: number;
+  judul: string;
+  status: string;
+  created_at: string;
+}
+
+const SUB_STATUS: Record<string, string> = { diajukan: 'menunggu review', revisi: 'perlu revisi', acc: 'ACC' };
+
 export function AjukanBimbinganModal({
   open,
   onClose,
@@ -247,8 +258,25 @@ export function AjukanBimbinganModal({
   const [topik, setTopik] = useState('');
   const [pesan, setPesan] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [sub, setSub] = useState('');
+  const [showFile, setShowFile] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const subs = useAsync(
+    async () =>
+      ((await must(
+        supabase.from('chapter_submissions').select('id, bab, nomor, judul, status, created_at').eq('thesis_id', thesis.id).neq('status', 'ditarik').order('created_at', { ascending: false }).limit(30),
+      )) as SubOption[]),
+    [thesis.id, open],
+  );
+  const subList = subs.data ?? [];
+
+  useEffect(() => {
+    if (!open || !subs.data) return;
+    const open1 = subs.data.find((x) => x.status === 'diajukan' || x.status === 'revisi');
+    setSub((s) => s || open1?.id || '');
+    if (open1 && !topik) setTopik(`Diskusi Bab ${open1.bab}: ${open1.judul}`);
+  }, [open, subs.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return;
@@ -262,6 +290,8 @@ export function AjukanBimbinganModal({
     setTopik(current && current.jenis === 'pembimbing_setuju' ? `Review ${current.nama}` : '');
     setPesan('');
     setFile(null);
+    setSub('');
+    setShowFile(false);
     setErr(null);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -290,6 +320,7 @@ export function AjukanBimbinganModal({
         p_milestone: milestone || null,
         p_document: docId,
       });
+      if (sub) await rpc('tautkan_pengajuan_sesi', { p_session: id, p_submission: sub });
       toast.show('Pengajuan bimbingan terkirim', 'ok');
       onDone(id);
     } catch (e) {
@@ -351,9 +382,31 @@ export function AjukanBimbinganModal({
         <Field label="Pesan untuk pembimbing" className="full">
           <textarea value={pesan} onChange={(e) => setPesan(e.target.value)} placeholder="Bagian yang ingin didiskusikan, kendala, atau pertanyaan" />
         </Field>
-        <Field label="Draf (opsional)" className="full" hint="PDF, DOC, atau DOCX, maksimal 20 MB. Versi draf tersimpan otomatis.">
-          <input type="file" accept={DRAFT_TYPES} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <Field
+          label="Pengajuan bab yang dibahas"
+          className="full"
+          hint={subList.length ? 'Pembimbing membuka bab ini langsung dari sesi. Isi bab dibaca dari Naskah, tidak perlu mengunggah berkas.' : 'Belum ada bab yang diajukan dari Naskah. Ajukan bab di halaman Naskah agar pembimbing dapat memberi komentar langsung.'}
+        >
+          <select value={sub} onChange={(e) => setSub(e.target.value)} disabled={!subList.length}>
+            <option value="">Tidak menautkan pengajuan bab</option>
+            {subList.map((x) => (
+              <option key={x.id} value={x.id}>
+                Bab {x.bab} {x.judul}, pengajuan ke-{x.nomor} ({SUB_STATUS[x.status] ?? x.status})
+              </option>
+            ))}
+          </select>
         </Field>
+        <div className="full">
+          {showFile || file ? (
+            <Field label="Berkas draf (cadangan)" hint="Hanya bila naskah tidak ditulis di SIMSA. PDF, DOC, atau DOCX, maksimal 20 MB.">
+              <input type="file" accept={DRAFT_TYPES} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+            </Field>
+          ) : (
+            <button type="button" className="link-btn small" onClick={() => setShowFile(true)}>
+              Unggah berkas draf sebagai cadangan
+            </button>
+          )}
+        </div>
       </div>
       {err && (
         <div className="note bad" style={{ marginTop: 12 }}>

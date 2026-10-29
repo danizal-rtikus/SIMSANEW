@@ -2,7 +2,7 @@ import { must, supabase } from './supabase';
 import type { DocumentRow, Milestone, Progress, Session, Supervisor, Thesis, TitleSubmission } from './types';
 
 export const SESSION_SELECT =
-  '*, dosen:profiles!guidance_sessions_dosen_id_fkey(nama), mahasiswa:profiles!guidance_sessions_mahasiswa_id_fkey(nama, nim), milestone:thesis_milestones(nama)';
+  '*, dosen:profiles!guidance_sessions_dosen_id_fkey(nama), mahasiswa:profiles!guidance_sessions_mahasiswa_id_fkey(nama, nim), milestone:thesis_milestones(nama), submission:chapter_submissions!guidance_sessions_submission_id_fkey(id, bab, nomor, judul, status)';
 
 export async function getMyThesis(uid: string): Promise<Thesis | null> {
   const rows = await must(

@@ -17,6 +17,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PmNodeType } from '@tiptap/pm/model';
 import { analyzeBlocks } from './struktur';
 import { Bibliography, Citation } from './citation';
+import { BabLock } from './kunci';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -319,6 +320,7 @@ export function naskahExtensions(
     babAwal?: number;
     onCommentClick?: (id: string) => void;
     onCitationClick?: (pos: number, attrs: { refs: string[]; halaman: string | null; naratif: boolean }) => void;
+    onBabBlocked?: (bab: number) => void;
   } = {},
 ): Extensions {
   return [
@@ -354,5 +356,6 @@ export function naskahExtensions(
     // configure() membuat instans baru, sehingga tiap editor punya penyimpanan pustaka sendiri.
     Citation.configure({ onClick: opts.onCitationClick }),
     Bibliography,
+    BabLock.configure({ onBlocked: opts.onBabBlocked }),
   ];
 }

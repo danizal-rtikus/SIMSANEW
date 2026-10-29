@@ -27,6 +27,14 @@ const FITUR: Record<string, string> = {
   cari_jurnal: 'Cari jurnal',
   periksa_bab: 'Periksa bab',
   review_bab: 'Review bab (dosen)',
+  tanggapi_catatan: 'Tanggapi catatan dosen',
+  keselarasan: 'Keselarasan antarbab',
+  kerangka: 'Kerangka subbab',
+  tabel_terdahulu: 'Tabel penelitian terdahulu',
+  cocok_rujukan: 'Cocokkan rujukan',
+  ejaan: 'Ejaan dan kalimat efektif',
+  abstrak: 'Draf abstrak',
+  persiapan_seminar: 'Persiapan seminar',
 };
 
 const STATUS: Record<Row['status'], { label: string; tone: 'ok' | 'bad' | 'warn' }> = {

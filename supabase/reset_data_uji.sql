@@ -23,6 +23,7 @@ delete from public.exam_panel;
 delete from public.exams;
 delete from public.milestone_approvals;
 delete from public.thesis_examiners;
+do $$ begin if to_regclass('public.title_change_requests') is not null then delete from public.title_change_approvals; delete from public.title_change_requests; end if; end $$;
 delete from public.thesis_title_history;
 delete from public.comments;
 delete from public.guidance_sessions;
