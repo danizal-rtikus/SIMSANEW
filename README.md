@@ -32,7 +32,8 @@ Di Supabase Dashboard buka **SQL Editor**, lalu jalankan berkas berikut **beruru
 11. `supabase/migrations/20261028001100_aisys.sql` (catatan pemakaian AISYS, hanya dapat dibaca Admin)
 12. `supabase/migrations/20261028001200_kinerja.sql` (indeks dan aturan RLS yang lebih cepat; aman dijalankan ulang)
 13. `supabase/migrations/20261028001300_kunci_fase_judul.sql` (kunci bab setelah ACC, fase milestone, usulan perubahan judul, tautan sesi ke pengajuan bab, fitur AISYS baru)
-14. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
+14. `supabase/migrations/20261029001400_daftar_akun.sql` (pendaftaran akun mahasiswa dan verifikasi Admin)
+15. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
 
 Atau jalankan satu berkas `supabase/setup_lengkap.sql` (gabungan semua di atas) pada proyek kosong.
 
@@ -167,6 +168,14 @@ Di editor naskah, panel AISYS berisi menu fitur per kelompok. Instruksi sistem m
 - Batas pemakaian per pengguna per hari (WIB) diatur dengan `AISYS_LIMIT_HARIAN` (bawaan 40; 0 berarti tanpa batas).
 - Variabel server: `AI_BASE_URL` (bawaan `https://ai.sumopod.com/v1`), `AI_API_KEY`, `AI_MODEL` (bawaan `deepseek-v4-flash`), `AISYS_LIMIT_HARIAN`. Di Vercel tambahkan di project server (`AI_API_KEY` sebagai Secret). `/api/health` menampilkan `aisys.aktif`.
 - Periksa bab dapat memakan waktu 10 sampai 40 detik. Bila di Vercel muncul galat batas waktu, naikkan **Settings > Functions > Max Duration** project server (mis. 60 detik).
+
+### Pendaftaran akun mahasiswa
+
+- Halaman masuk memiliki tab **Daftar akun**. Calon mahasiswa mengisi nama, NIM, prodi, email, nomor HP, dan kata sandi; angkatan dibaca dari 4 digit pertama NIM.
+- Akun dibuat oleh server (`POST /api/daftar`) dengan API admin Supabase, sehingga tidak memerlukan konfirmasi email. Pengaturan Supabase **Authentication > Sign In / Providers > Allow new users to sign up** sebaiknya dimatikan agar pendaftaran hanya lewat SIMSA. Pendaftaran dari satu jaringan dibatasi 5 per jam.
+- Akun baru dapat masuk tetapi belum memiliki peran, sehingga hanya melihat halaman status "menunggu verifikasi". Data pendaftaran disimpan di `account_requests` dan baru disalin ke profil saat disetujui.
+- Admin memeriksa antrean di menu **Verifikasi akun** (jumlah antrean tampil di sidebar), lengkap dengan peringatan NIM sudah terdaftar, NIM ganda, email serupa, nama mirip, dan angkatan yang tidak terbaca. Setujui (satu atau beberapa sekaligus) memberi peran Mahasiswa; Tolak wajib disertai alasan. Pendaftar yang ditolak dapat memperbaiki data dan mengajukan ulang.
+- Admin dapat **menghapus** akun yang belum memiliki data studi akhir atau bimbingan (menu Verifikasi akun dan Pengguna). Akun yang sudah memiliki data cukup dinonaktifkan.
 
 ### Kunci bab, fase, dan perubahan judul
 

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { env } from './env.js';
 import { adminRouter } from './routes/admin.js';
 import { aisysRouter } from './routes/aisys.js';
+import { daftarRouter } from './routes/daftar.js';
 import { aiReady } from './aisys/llm.js';
 import { UserError } from './users.js';
 import { checkSupabase, printCheck } from './check.js';
@@ -22,6 +23,7 @@ app.get('/api/health', async (_req, res) => {
 
 app.use('/api/admin', adminRouter);
 app.use('/api/aisys', aisysRouter);
+app.use('/api/daftar', daftarRouter);
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Endpoint tidak ditemukan' }));
 

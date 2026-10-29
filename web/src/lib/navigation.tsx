@@ -40,6 +40,8 @@ export interface NavCounts {
   sesi: number;
   judul: number;
   review?: number;
+  /** Pendaftaran akun yang menunggu verifikasi (Admin). */
+  akun?: number;
 }
 
 export const HOME: NavItem = { to: '/', label: 'Beranda', icon: <IconHome />, end: true };
@@ -183,6 +185,7 @@ export function navFor(role: AppRole | undefined, c: NavCounts): NavSection[] {
         {
           label: 'Pengguna dan akses',
           items: [
+            { to: '/admin/verifikasi', label: 'Verifikasi akun', icon: <IconUserCheck />, count: c.akun },
             { to: '/admin/pengguna', label: 'Pengguna', icon: <IconUsers /> },
             { to: '/admin/audit', label: 'Audit log', icon: <IconHistory /> },
             { to: '/admin/aisys', label: 'Log AISYS', icon: <IconChart /> },

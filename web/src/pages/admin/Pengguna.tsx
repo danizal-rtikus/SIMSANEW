@@ -54,6 +54,23 @@ export function Pengguna() {
     }
   };
 
+  const remove = async (u: UserRow) => {
+    const ok = await dialog.confirm({
+      title: `Hapus akun ${u.nama}?`,
+      message: 'Akun dihapus permanen dan tidak dapat dipulihkan. Akun yang sudah memiliki data studi akhir atau bimbingan tidak dapat dihapus; nonaktifkan saja.',
+      confirmLabel: 'Hapus akun',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api(`/admin/users/${u.id}`, { method: 'DELETE' });
+      toast.show('Akun dihapus', 'ok');
+      st.reload();
+    } catch (e) {
+      toast.show((e as Error).message, 'bad');
+    }
+  };
+
   const resetPassword = async (u: UserRow) => {
     const ok = await dialog.confirm({ title: `Buat kata sandi baru untuk ${u.nama}?`, message: 'Kata sandi lama tidak berlaku lagi. Kata sandi baru ditampilkan sekali untuk Anda sampaikan.', confirmLabel: 'Buat kata sandi baru' });
     if (!ok) return;
@@ -150,6 +167,11 @@ export function Pengguna() {
                       {u.id !== userId && (
                         <Button size="sm" variant="ghost" onClick={() => toggleActive(u)}>
                           {u.aktif ? 'Nonaktifkan' : 'Aktifkan'}
+                        </Button>
+                      )}
+                      {u.id !== userId && (
+                        <Button size="sm" variant="ghost" onClick={() => remove(u)}>
+                          Hapus
                         </Button>
                       )}
                     </td>

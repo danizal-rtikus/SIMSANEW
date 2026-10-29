@@ -8,6 +8,7 @@ import { Layout } from './components/Layout';
 import { Empty, Loading } from './components/ui';
 import { BRAND } from './lib/brand';
 import { Login } from './pages/Login';
+import { MenungguVerifikasi } from './pages/MenungguVerifikasi';
 import { ResetPassword } from './pages/ResetPassword';
 import { Dashboard } from './pages/Dashboard';
 import { lazyModule, registerPreload } from './lib/lazy';
@@ -28,6 +29,7 @@ const mPengguna = lazyModule(() => import('./pages/admin/Pengguna'));
 const mMaster = lazyModule(() => import('./pages/admin/MasterData'));
 const mAudit = lazyModule(() => import('./pages/admin/AuditLog'));
 const mAisys = lazyModule(() => import('./pages/admin/AisysLog'));
+const mVerifikasi = lazyModule(() => import('./pages/admin/VerifikasiAkun'));
 const mNotif = lazyModule(() => import('./pages/Notifikasi'));
 const mProfil = lazyModule(() => import('./pages/Profil'));
 const mUjianList = lazyModule(() => import('./pages/ujian/UjianList'));
@@ -52,6 +54,7 @@ const Pengguna = mPengguna('Pengguna');
 const MasterData = mMaster('MasterData');
 const AuditLog = mAudit('AuditLog');
 const AisysLog = mAisys('AisysLog');
+const VerifikasiAkun = mVerifikasi('VerifikasiAkun');
 const Notifikasi = mNotif('Notifikasi');
 const Profil = mProfil('Profil');
 const UjianList = mUjianList('UjianList');
@@ -79,6 +82,7 @@ const ReviewList = mReviewList('ReviewList');
     [/^\/admin\/master/, MasterData],
     [/^\/admin\/audit/, AuditLog],
     [/^\/admin\/aisys/, AisysLog],
+    [/^\/admin\/verifikasi/, VerifikasiAkun],
     [/^\/notifikasi/, Notifikasi],
     [/^\/profil/, Profil],
     [/^\/ujian\/./, UjianDetail],
@@ -104,7 +108,7 @@ function SetupNeeded() {
 }
 
 function Protected({ children }: { children: ReactNode }) {
-  const { session, loading, roles, recovery, signOut } = useAuth();
+  const { session, loading, roles, recovery } = useAuth();
   const location = useLocation();
   if (loading)
     return (
@@ -115,23 +119,7 @@ function Protected({ children }: { children: ReactNode }) {
     );
   if (recovery) return <Navigate to="/reset-password" replace />;
   if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
-  if (roles.length === 0) {
-    return (
-      <div className="auth-form" style={{ minHeight: '100vh' }}>
-        <img className="brand-logo lg" src={BRAND.logo} alt={`Logo ${BRAND.institution}`} />
-        <Empty
-          title="Akun Anda belum memiliki peran"
-          action={
-            <button className="btn" onClick={() => signOut()}>
-              Keluar
-            </button>
-          }
-        >
-          Hubungi Admin SIMSA agar akun Anda diberi peran (mis. Mahasiswa atau Dosen) sebelum dapat memakai sistem.
-        </Empty>
-      </div>
-    );
-  }
+  if (roles.length === 0) return <MenungguVerifikasi />;
   return <>{children}</>;
 }
 
@@ -192,6 +180,7 @@ export function App() {
         <Route path="admin/master" element={<ForRole roles={['admin']}><MasterData /></ForRole>} />
         <Route path="admin/audit" element={<ForRole roles={['admin']}><AuditLog /></ForRole>} />
         <Route path="admin/aisys" element={<ForRole roles={['admin']}><AisysLog /></ForRole>} />
+        <Route path="admin/verifikasi" element={<ForRole roles={['admin']}><VerifikasiAkun /></ForRole>} />
         <Route path="notifikasi" element={<Notifikasi />} />
         <Route path="profil" element={<Profil />} />
         <Route path="*" element={<Empty title="Halaman tidak ditemukan">Periksa kembali alamat yang Anda buka.</Empty>} />

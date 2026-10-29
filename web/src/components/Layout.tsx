@@ -52,7 +52,7 @@ export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [palette, setPalette] = useState(false);
   const [unread, setUnread] = useState(0);
-  const [counts, setCounts] = useState<NavCounts>({ sesi: 0, judul: 0, review: 0 });
+  const [counts, setCounts] = useState<NavCounts>({ sesi: 0, judul: 0, review: 0, akun: 0 });
   const [tick, setTick] = useState(0);
   const [theme, setThemeState] = useState<Theme>(readTheme());
 
@@ -156,10 +156,16 @@ export function Layout() {
     if (countsAt.current.key === key && Date.now() - countsAt.current.at < 30_000) return;
     countsAt.current = { key, at: Date.now() };
     let alive = true;
+    let done = false;
     (async () => {
       let sesi = 0;
       let judul = 0;
       let review = 0;
+      let akun = 0;
+      if (active.role === 'admin') {
+        const { count } = await supabase.from('account_requests').select('id', { count: 'exact', head: true }).eq('status', 'menunggu');
+        akun = count ?? 0;
+      }
       if (active.role === 'dosen') {
         const { count } = await supabase.from('guidance_sessions').select('id', { count: 'exact', head: true }).eq('dosen_id', userId).eq('status', 'diajukan');
         sesi = count ?? 0;
@@ -170,10 +176,13 @@ export function Layout() {
         const { count } = await supabase.from('title_submissions').select('id', { count: 'exact', head: true }).eq('prodi_id', active.prodi_id).eq('status', 'diajukan');
         judul = count ?? 0;
       }
-      if (alive) setCounts((c) => (c.sesi === sesi && c.judul === judul && c.review === review ? c : { sesi, judul, review }));
+      done = true;
+      if (alive) setCounts((c) => (c.sesi === sesi && c.judul === judul && c.review === review && c.akun === akun ? c : { sesi, judul, review, akun }));
     })();
     return () => {
       alive = false;
+      // Hitungan yang batal di tengah jalan tidak dihitung, agar dimuat ulang pada render berikutnya.
+      if (!done) countsAt.current = { key: '', at: 0 };
     };
   }, [userId, active, tick, pathname]);
 

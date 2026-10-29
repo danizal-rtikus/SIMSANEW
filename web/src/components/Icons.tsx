@@ -81,3 +81,5 @@ export const IconOutline = (p: P) => <Svg {...p}><path d="M4 6h3M4 12h3M4 18h3M1
 export const IconPage = (p: P) => <Svg {...p}><rect x="6" y="3.5" width="12" height="17" rx="1.5" /><path d="M9 8h6M9 11.5h6M9 15h4" /></Svg>;
 export const IconWide = (p: P) => <Svg {...p}><rect x="3" y="5" width="18" height="14" rx="1.5" /><path d="M7 9h10M7 12h10M7 15h7" /></Svg>;
 export const IconClose = (p: P) => <Svg {...p}><path d="M6 6l12 12M18 6 6 18" /></Svg>;
+export const IconEye = (p: P) => <Svg {...p}><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></Svg>;
+export const IconEyeOff = (p: P) => <Svg {...p}><path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2" /><path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6" /><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" /><path d="m3 3 18 18" /></Svg>;

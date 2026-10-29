@@ -109,6 +109,31 @@ adminRouter.post(
   }),
 );
 
+// Hapus akun (hanya akun tanpa data studi akhir, mis. pendaftar atau akun uji)
+adminRouter.delete(
+  '/users/:id',
+  wrap(async (req, res) => {
+    const id = req.params.id;
+    if (id === req.user!.id) throw new UserError('Anda tidak dapat menghapus akun sendiri');
+    const { data: before } = await admin.from('profiles').select('id, email, nama, nim').eq('id', id).maybeSingle();
+    if (!before) return res.status(404).json({ error: 'Pengguna tidak ditemukan' });
+    const [{ count: th }, { count: sup }] = await Promise.all([
+      admin.from('thesis').select('id', { count: 'exact', head: true }).eq('mahasiswa_id', id),
+      admin.from('thesis_supervisors').select('id', { count: 'exact', head: true }).eq('dosen_id', id),
+    ]);
+    if ((th ?? 0) > 0 || (sup ?? 0) > 0) {
+      throw new UserError('Akun ini sudah memiliki data studi akhir atau bimbingan. Nonaktifkan saja agar riwayatnya tetap utuh.');
+    }
+    const { error } = await admin.auth.admin.deleteUser(id);
+    if (error) {
+      if (/foreign key|violates/i.test(error.message)) throw new UserError('Akun ini masih dirujuk data lain. Nonaktifkan saja agar riwayatnya tetap utuh.');
+      throw new UserError(error.message);
+    }
+    await audit(req.user!.id, 'hapus_pengguna', 'profiles', id, before, null);
+    res.json({ ok: true });
+  }),
+);
+
 // Reset kata sandi
 adminRouter.post(
   '/users/:id/reset-password',
