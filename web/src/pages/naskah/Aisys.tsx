@@ -12,6 +12,7 @@ import { addReferences, pustakaError } from '../../lib/pustaka/data';
 import { Button } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 import { IconArrowLeft } from '../../components/Icons';
+import { PanduTab } from './AisysPandu';
 import { AbstrakTab, CocokTab, EjaanTab, KerangkaTab, KeselarasanTab, PersiapanTab, TabelTab, TanggapiTab, type CatatanDosen } from './AisysFitur';
 
 export { Disclaimer, locateQuote, revealRange } from './aisysKit';
@@ -84,7 +85,7 @@ export function TemuanList({
 /* Panel AISYS di editor naskah (mahasiswa)                            */
 /* ------------------------------------------------------------------ */
 
-type Fitur = 'tulis' | 'kerangka' | 'abstrak' | 'periksa' | 'ejaan' | 'keselarasan' | 'tanggapi' | 'jurnal' | 'cocok' | 'tabel' | 'persiapan';
+type Fitur = 'pandu' | 'tulis' | 'kerangka' | 'abstrak' | 'periksa' | 'ejaan' | 'keselarasan' | 'tanggapi' | 'jurnal' | 'cocok' | 'tabel' | 'persiapan';
 
 interface FiturInfo {
   key: Fitur;
@@ -96,6 +97,7 @@ const MENU: { judul: string; items: FiturInfo[] }[] = [
   {
     judul: 'Menulis',
     items: [
+      { key: 'pandu', label: 'Pandu latar belakang', desc: 'Tanya jawab bertahap sampai draf Latar Belakang dengan literatur nyata' },
       { key: 'tulis', label: 'Parafrase dan kembangkan', desc: 'Parafrase teks terpilih atau kembangkan poin menjadi paragraf' },
       { key: 'kerangka', label: 'Kerangka subbab', desc: 'Susunan subbab sesuai pedoman prodi, dengan panduan isi' },
       { key: 'abstrak', label: 'Draf abstrak', desc: 'Abstrak Indonesia dan Inggris dari isi naskah' },
@@ -162,6 +164,8 @@ export function AisysPanel({
 
   const body = (k: Fitur) => {
     switch (k) {
+      case 'pandu':
+        return <PanduTab editor={editor} thesisId={thesisId} refs={refs} onRefs={onRefs} flush={flush} onSisa={status.update} />;
       case 'tulis':
         return <TulisTab editor={editor} thesisId={thesisId} onSisa={status.update} />;
       case 'jurnal':

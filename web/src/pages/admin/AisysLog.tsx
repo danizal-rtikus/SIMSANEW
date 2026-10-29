@@ -35,6 +35,8 @@ const FITUR: Record<string, string> = {
   ejaan: 'Ejaan dan kalimat efektif',
   abstrak: 'Draf abstrak',
   persiapan_seminar: 'Persiapan seminar',
+  pandu_latar: 'Pandu latar belakang (sesi)',
+  pandu_giliran: 'Pandu latar belakang (giliran)',
 };
 
 const STATUS: Record<Row['status'], { label: string; tone: 'ok' | 'bad' | 'warn' }> = {

@@ -32,7 +32,9 @@ type Fitur =
   | 'cocok_rujukan'
   | 'ejaan'
   | 'abstrak'
-  | 'persiapan_seminar';
+  | 'persiapan_seminar'
+  | 'pandu_latar'
+  | 'pandu_giliran';
 type Peran = 'mahasiswa' | 'dosen';
 
 interface ThesisRow {
@@ -85,7 +87,8 @@ function startOfDayWib(): string {
 }
 
 async function usedToday(userId: string): Promise<number> {
-  const { count } = await admin.from('ai_usage_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).neq('status', 'ditolak').gte('created_at', startOfDayWib());
+  // Giliran di dalam sesi Pandu tidak dihitung: satu sesi = satu pemakaian.
+  const { count } = await admin.from('ai_usage_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).neq('status', 'ditolak').neq('fitur', 'pandu_giliran').gte('created_at', startOfDayWib());
   return count ?? 0;
 }
 
@@ -984,5 +987,603 @@ aisysRouter.post(
       return { jenis, label: UJIAN_LABEL[jenis], pertanyaan, slide, tips: arr(j.tips, 4, 300) };
     });
     res.json(out);
+  }),
+);
+
+/* ------------------------------------------------------------------ */
+/* Pandu latar belakang: sesi bertahap yang urutannya dijaga server    */
+/* ------------------------------------------------------------------ */
+
+type Keluarga = 'SI' | 'INF' | 'KA' | 'DKV';
+
+const JENIS: Record<Keluarga, { label: string; isi: string }[]> = {
+  SI: [
+    { label: 'Pengembangan/perancangan sistem', isi: 'Membangun atau merancang aplikasi/sistem informasi sebagai solusi masalah organisasi, misalnya dengan SDLC, prototyping, atau agile.' },
+    { label: 'Evaluasi/analisis sistem', isi: 'Menilai sistem yang sudah ada: penerimaan pengguna, kepuasan, kesuksesan sistem, usability, tata kelola/audit TI, atau analisis proses bisnis.' },
+    { label: 'Pengolahan data/pemodelan', isi: 'Sistem pendukung keputusan, data mining, atau machine learning untuk menyelesaikan masalah berbasis data.' },
+  ],
+  INF: [
+    { label: 'Pengembangan perangkat lunak/sistem', isi: 'Membangun aplikasi, sistem tertanam/IoT, atau sistem jaringan sebagai solusi suatu masalah.' },
+    { label: 'Penerapan dan pengujian algoritma/metode', isi: 'Menerapkan dan menguji kecerdasan buatan, machine learning, kriptografi, optimasi, atau pengolahan citra.' },
+    { label: 'Analisis/evaluasi kinerja', isi: 'Mengukur dan menganalisis performa sistem, keamanan, jaringan, atau kualitas perangkat lunak.' },
+  ],
+  KA: [
+    { label: 'Pengembangan sistem informasi akuntansi', isi: 'Membangun aplikasi pencatatan transaksi, penggajian, persediaan, atau pelaporan keuangan.' },
+    { label: 'Analisis/evaluasi sistem akuntansi', isi: 'Menilai prosedur, pengendalian internal, atau kesesuaian sistem akuntansi berjalan dengan standar.' },
+    { label: 'Pengolahan data dan pelaporan keuangan', isi: 'Dashboard, analisis rasio, atau sistem pendukung keputusan keuangan.' },
+  ],
+  DKV: [
+    { label: 'Perancangan karya visual', isi: 'Merancang identitas visual, kampanye sosial, ilustrasi, kemasan, atau fotografi sebagai solusi masalah komunikasi.' },
+    { label: 'Kajian/analisis visual', isi: 'Mengkaji makna dan efektivitas komunikasi visual, misalnya dengan semiotika atau analisis gaya dan budaya visual.' },
+    { label: 'Perancangan media digital/interaktif', isi: 'Merancang UI/UX, motion graphic, animasi, game, atau media pembelajaran interaktif.' },
+  ],
+};
+
+const BIDANG: Record<Keluarga, string> = {
+  SI: 'Sistem Informasi',
+  INF: 'Teknik Informatika',
+  KA: 'Komputerisasi Akuntansi',
+  DKV: 'Desain Komunikasi Visual',
+};
+
+function keluargaProdi(kode: string, nama: string): Keluarga {
+  const n = `${kode} ${nama}`.toLowerCase();
+  if (/desain|dkv/.test(n)) return 'DKV';
+  if (/akuntansi/.test(n)) return 'KA';
+  if (/teknik informatika|\binf\b|\bti\b/.test(n)) return 'INF';
+  return 'SI';
+}
+
+const FRAME: { kode: string; nama: string; arti: string }[] = [
+  { kode: 'O', nama: 'Objek', arti: 'alasan organisasi, proses bisnis, karya, atau dataset krusial untuk diteliti; dorong mahasiswa memikirkan fakta atau data pendukung (volume transaksi, jumlah pengguna, kendala operasional)' },
+  { kode: 'M', nama: 'Metode yang ada', arti: '2 sampai 3 pendekatan terdahulu. Pengembangan/perancangan: sistem atau proses yang berjalan saat ini dan metode pengembangan/perancangan yang lazim. Evaluasi/kajian: model atau kerangka evaluasi yang lazim. Data/algoritma: algoritma atau metode yang lazim untuk masalah serupa' },
+  { kode: 'KK', nama: 'Kelebihan dan Kekurangan', arti: 'kelebihan dan kelemahan umum dari metode yang ada (efisiensi, biaya, akurasi, skalabilitas, cakupan variabel, kemudahan penggunaan, keterbacaan pesan)' },
+  { kode: 'MASA', nama: 'Masalah pada metode terpilih', arti: 'kelemahan spesifik yang menjadi celah. Pengembangan: masalah pada sistem berjalan (proses lambat, data tidak terintegrasi, rawan kesalahan). Evaluasi: celah pada model atau konteks yang belum diteliti. Data/algoritma: kelemahan algoritma (akurasi rendah, data tidak seimbang, subjektivitas pembobotan)' },
+  { kode: 'SOL', nama: 'Solusi', arti: 'argumen mengapa usulan mahasiswa menutup celah tersebut: sistem/karya yang diusulkan beserta metode dan teknologinya, model atau kerangka yang diadaptasi, atau algoritma beserta metrik evaluasinya' },
+  { kode: 'TU', nama: 'Tujuan', arti: 'kesimpulan penerapan solusi: sistem/karya yang dihasilkan dan manfaatnya, tingkat penerimaan atau kesuksesan yang terukur, atau kinerja model yang dibandingkan' },
+];
+
+interface Opsi {
+  k: 'A' | 'B' | 'C' | 'D';
+  teks: string;
+}
+
+interface Giliran {
+  kind: 'pilihan' | 'konfirmasi' | 'literatur' | 'draf' | 'selesai';
+  tahap: string;
+  progres: string;
+  pengantar?: string;
+  umpan_balik?: string;
+  pertanyaan: string;
+  opsi: Opsi[];
+  bebas: boolean;
+  ringkasan?: string;
+  literatur?: { kueri: string[]; artikel: { work: CrWork; alasan: string; aspek: string }[]; buku: BukuItem[] };
+  draf?: { paragraf: string[]; problem_statement: string; research_questions: string[]; research_objectives: string[]; refs: string[] };
+}
+
+interface BukuItem {
+  id: string;
+  judul: string;
+  penulis: string[];
+  penerbit: string | null;
+  tahun: number | null;
+  isbn: string | null;
+  url: string | null;
+  alasan: string;
+}
+
+interface PanduState {
+  step: string;
+  keluarga: Keluarga;
+  topik?: string;
+  jenis?: number;
+  elemen?: { nama: string; jawaban?: string }[];
+  whyIdx?: number;
+  whyRingkas?: string;
+  frame?: Record<string, string>;
+  frameIdx?: number;
+  frameRingkas?: string;
+  refIds?: string[];
+  terakhirBebas?: string;
+  current?: Giliran;
+}
+
+interface SesiRow {
+  id: string;
+  thesis_id: string;
+  user_id: string;
+  status: string;
+  tahap: string;
+  state: PanduState;
+  riwayat: { tahap: string; pertanyaan: string; jawaban: string }[];
+}
+
+const TAHAP: Record<string, string> = {
+  topik: 'Topik',
+  jenis: 'Tahap 0 – Jenis skripsi',
+  why: 'Tahap 1 – Pembedahan WHY',
+  frame: 'Tahap 2 – Kerangka OMKKMASASOLTU',
+  literatur: 'Tahap 3 – Literatur',
+  draf: 'Tahap 4 – Draf latar belakang',
+  selesai: 'Selesai',
+};
+
+function konteks(st: PanduState, t: ThesisRow): string {
+  const j = st.jenis !== undefined ? JENIS[st.keluarga][st.jenis] : null;
+  const lines = [`Bidang: ${BIDANG[st.keluarga]}. Jenjang: ${t.jenjang}.`, `Topik/judul: ${st.topik ?? t.judul}`];
+  if (j) lines.push(`Jenis skripsi: ${j.label}. ${j.isi}`);
+  const why = (st.elemen ?? []).filter((e) => e.jawaban);
+  if (why.length) lines.push(`Jawaban WHY:\n${why.map((e) => `- Mengapa ${e.nama}: ${e.jawaban}`).join('\n')}`);
+  if (st.whyRingkas) lines.push(`Ringkasan WHY: ${st.whyRingkas}`);
+  const fr = FRAME.filter((f) => st.frame?.[f.kode]);
+  if (fr.length) lines.push(`Kerangka OMKKMASASOLTU:\n${fr.map((f) => `- ${f.nama}: ${st.frame![f.kode]}`).join('\n')}`);
+  return lines.join('\n');
+}
+
+const opsiDari = (list: string[], bebas = true): Opsi[] => [
+  ...list.slice(0, 3).map((teks, i) => ({ k: (['A', 'B', 'C'] as const)[i], teks })),
+  ...(bebas ? [{ k: 'D' as const, teks: 'Tulis jawaban sendiri' }] : []),
+];
+
+/** Jalankan satu panggilan model di dalam sesi dan catat sebagai giliran (tidak memotong kuota). */
+async function giliranAi<T>(req: Request, thesisId: string, label: string, fn: (call: typeof chat) => Promise<T>): Promise<T> {
+  const t0 = Date.now();
+  let tin = 0;
+  let tout = 0;
+  const call: typeof chat = async (m, o) => {
+    try {
+      const r = await chat(m, o);
+      tin += r.tokenMasuk;
+      tout += r.tokenKeluar;
+      return r;
+    } catch (e) {
+      if (e instanceof AiError && e.usage) {
+        tin += e.usage.tokenMasuk;
+        tout += e.usage.tokenKeluar;
+      }
+      throw e;
+    }
+  };
+  try {
+    const out = await fn(call);
+    await log({ user_id: req.user!.id, peran: 'mahasiswa', thesis_id: thesisId, fitur: 'pandu_giliran', token_masuk: tin, token_keluar: tout, durasi_ms: Date.now() - t0, status: 'ok', cuplikan: label });
+    return out;
+  } catch (e) {
+    await log({ user_id: req.user!.id, peran: 'mahasiswa', thesis_id: thesisId, fitur: 'pandu_giliran', token_masuk: tin, token_keluar: tout, durasi_ms: Date.now() - t0, status: 'gagal', galat: (e as Error).message.slice(0, 300), cuplikan: label });
+    throw e;
+  }
+}
+
+async function tanya(req: Request, t: ThesisRow, st: PanduState, langkah: string): Promise<{ pertanyaan: string; opsi: string[]; umpan_balik: string }> {
+  const user = [konteks(st, t), st.terakhirBebas ? `Jawaban tulisan sendiri terakhir dari mahasiswa: "${st.terakhirBebas}"` : '', `Langkah sekarang: ${langkah}`].filter(Boolean).join('\n\n');
+  const j = await giliranAi(req, t.id, langkah.slice(0, 120), (call) =>
+    askJson<{ pertanyaan?: unknown; opsi?: unknown; umpan_balik?: unknown }>(call, P.PANDU_TANYA, user, { maxTokens: 2500, temperature: 0.5, ringkas: 'Setiap opsi paling banyak 25 kata.' }),
+  );
+  const opsi = arr(j.opsi, 3, 400);
+  const pertanyaan = s(j.pertanyaan, 500);
+  if (!pertanyaan || opsi.length < 3) throw new AiError('AISYS tidak menyusun pertanyaan dengan lengkap. Coba kirim lagi.');
+  return { pertanyaan, opsi, umpan_balik: st.terakhirBebas ? s(j.umpan_balik, 500) : '' };
+}
+
+async function ringkas(req: Request, t: ThesisRow, st: PanduState, tahap: 'WHY' | 'OMKKMASASOLTU', koreksi?: string): Promise<string> {
+  const user = [konteks(st, t), `Tahap yang diringkas: ${tahap}`, koreksi ? `Koreksi dari mahasiswa: ${koreksi}` : ''].filter(Boolean).join('\n\n');
+  const j = await giliranAi(req, t.id, `Ringkas ${tahap}`, (call) => askJson<{ ringkasan?: unknown }>(call, P.PANDU_RINGKAS, user, { maxTokens: 2000, temperature: 0.3, ringkas: 'Paling banyak 3 kalimat.' }));
+  const r = s(j.ringkasan, 1500);
+  if (!r) throw new AiError('AISYS tidak menghasilkan ringkasan. Coba lagi.');
+  return r;
+}
+
+function pilihanJenis(st: PanduState, pengantar?: string): Giliran {
+  const list = JENIS[st.keluarga];
+  return {
+    kind: 'pilihan',
+    tahap: TAHAP.jenis,
+    progres: TAHAP.jenis,
+    pengantar,
+    pertanyaan: 'Jenis skripsi apa yang Anda maksud? Jenis ini menentukan makna metode, masalah, solusi, dan tujuan pada tahap berikutnya.',
+    opsi: [...list.map((j, i) => ({ k: (['A', 'B', 'C'] as const)[i], teks: `${j.label}: ${j.isi}` })), ...(pengantar ? [] : [{ k: 'D' as const, teks: 'Belum yakin (bantu saya memilih)' }])],
+    bebas: false,
+  };
+}
+
+async function whyGiliran(req: Request, t: ThesisRow, st: PanduState): Promise<Giliran> {
+  const i = st.whyIdx ?? 0;
+  const el = st.elemen![i];
+  const q = await tanya(req, t, st, `Tahap 1 WHY: tanyakan "mengapa" untuk elemen "${el.nama}" (elemen ${i + 1} dari ${st.elemen!.length}).`);
+  return { kind: 'pilihan', tahap: TAHAP.why, progres: `${TAHAP.why}, pertanyaan ${i + 1} dari ${st.elemen!.length}`, umpan_balik: q.umpan_balik, pertanyaan: q.pertanyaan, opsi: opsiDari(q.opsi), bebas: true };
+}
+
+async function frameGiliran(req: Request, t: ThesisRow, st: PanduState, pengantar?: string): Promise<Giliran> {
+  const i = st.frameIdx ?? 0;
+  const f = FRAME[i];
+  const q = await tanya(req, t, st, `Tahap 2 OMKKMASASOLTU, poin ${f.kode} (${f.nama}): ${f.arti}. Gunakan makna yang sesuai jenis skripsi.`);
+  return { kind: 'pilihan', tahap: TAHAP.frame, progres: `${TAHAP.frame}, poin ${f.kode} (${i + 1} dari ${FRAME.length})`, pengantar, umpan_balik: q.umpan_balik, pertanyaan: q.pertanyaan, opsi: opsiDari(q.opsi), bebas: true };
+}
+
+const konfirmasi = (tahap: string, progres: string, ringkasan: string, umpan_balik?: string): Giliran => ({
+  kind: 'konfirmasi',
+  tahap,
+  progres,
+  umpan_balik,
+  ringkasan,
+  pertanyaan: 'Apakah ringkasan ini sudah sesuai dengan pemikiran Anda?',
+  opsi: [
+    { k: 'A', teks: 'Ya, sudah sesuai. Lanjutkan.' },
+    { k: 'D', teks: 'Perbaiki ringkasan (tulis koreksi Anda)' },
+  ],
+  bebas: true,
+});
+
+async function crossrefTerbaru(q: string, dariTahun: number): Promise<CrWork[]> {
+  const url = `https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(q)}&rows=12&filter=from-pub-date:${dariTahun}-01-01,type:journal-article&select=${CR_FIELDS}&mailto=simsa@stikomyos.ac.id`;
+  const ctl = new AbortController();
+  const tm = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const r = await fetch(url, { signal: ctl.signal, headers: { 'User-Agent': 'SIMSA/1.0 (mailto:simsa@stikomyos.ac.id)' } });
+    if (!r.ok) return [];
+    const j = (await r.json()) as { message?: { items?: CrWork[] } };
+    return j.message?.items ?? [];
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(tm);
+  }
+}
+
+interface GBook {
+  id: string;
+  volumeInfo?: { title?: string; subtitle?: string; authors?: string[]; publisher?: string; publishedDate?: string; description?: string; industryIdentifiers?: { type: string; identifier: string }[]; infoLink?: string; canonicalVolumeLink?: string };
+}
+
+async function googleBooks(q: string): Promise<GBook[]> {
+  const ctl = new AbortController();
+  const tm = setTimeout(() => ctl.abort(), 12000);
+  try {
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=8&printType=books&orderBy=relevance`, { signal: ctl.signal });
+    if (!r.ok) return [];
+    const j = (await r.json()) as { items?: GBook[] };
+    return (j.items ?? []).filter((b) => b.volumeInfo?.title && b.volumeInfo.authors?.length);
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(tm);
+  }
+}
+
+async function literaturGiliran(req: Request, t: ThesisRow, st: PanduState, kataKunci?: string): Promise<Giliran> {
+  const dariTahun = new Date().getFullYear() - 5;
+  const base = konteks(st, t);
+  const k = await giliranAi(req, t.id, 'Kata kunci literatur', (call) =>
+    askJson<{ artikel?: unknown; buku?: unknown }>(call, P.PANDU_KUERI, `${base}${kataKunci ? `\n\nKata kunci tambahan dari mahasiswa: ${kataKunci}` : ''}`, { maxTokens: 1500, temperature: 0.3, ringkas: 'Paling banyak 3 kueri.' }),
+  );
+  const qa = arr(k.artikel, 3, 120);
+  const qb = arr(k.buku, 2, 120);
+  if (kataKunci) qa.unshift(kataKunci.slice(0, 120));
+  if (!qa.length) qa.push((st.topik ?? t.judul).slice(0, 120));
+  const [la, lb] = await Promise.all([Promise.all(qa.slice(0, 4).map((q) => crossrefTerbaru(q, dariTahun))), Promise.all(qb.map(googleBooks))]);
+  const seen = new Set<string>();
+  const artikel: CrWork[] = [];
+  for (let i = 0; i < 12; i++) {
+    for (const l of la) {
+      const w = l[i];
+      if (!w?.DOI || !w.title?.[0] || (yearOf(w) ?? 0) < dariTahun) continue;
+      const key = w.DOI.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      artikel.push(w);
+    }
+  }
+  const poolA = artikel.slice(0, 24);
+  const bseen = new Set<string>();
+  const poolB = lb.flat().filter((b) => (bseen.has(b.id) ? false : (bseen.add(b.id), true))).slice(0, 10);
+  if (!poolA.length && !poolB.length) {
+    return {
+      kind: 'literatur',
+      tahap: TAHAP.literatur,
+      progres: TAHAP.literatur,
+      pertanyaan: 'Literatur yang relevan belum ditemukan. Tulis kata kunci lain (sebaiknya bahasa Inggris) untuk mencari ulang.',
+      opsi: [],
+      bebas: true,
+      literatur: { kueri: [...qa, ...qb], artikel: [], buku: [] },
+    };
+  }
+  const daftarA = poolA
+    .map((w, i) => {
+      const abs = (w.abstract ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 260);
+      return `A${i + 1}. ${w.title![0].replace(/<[^>]+>/g, '')} (${yearOf(w)}; ${w['container-title']?.[0] ?? 'jurnal'})${abs ? `\n    Abstrak: ${abs}` : ''}`;
+    })
+    .join('\n');
+  const daftarB = poolB.map((b, i) => `B${i + 1}. ${b.volumeInfo!.title}${b.volumeInfo!.subtitle ? `: ${b.volumeInfo!.subtitle}` : ''} (${(b.volumeInfo!.authors ?? []).join(', ')}; ${b.volumeInfo!.publishedDate?.slice(0, 4) ?? 't.t.'})`).join('\n');
+  const pil = await giliranAi(req, t.id, 'Pilih literatur', (call) =>
+    askJson<{ artikel?: { no?: unknown; alasan?: unknown; aspek?: unknown }[]; buku?: { no?: unknown; alasan?: unknown }[] }>(
+      call,
+      P.PANDU_PILIH,
+      `${base}\n\nArtikel (nomor diawali A):\n${daftarA || '(tidak ada)'}\n\nBuku (nomor diawali B):\n${daftarB || '(tidak ada)'}\n\nTulis "no" sebagai angka tanpa huruf A atau B.`,
+      { maxTokens: 3000, temperature: 0.2, ringkas: 'Alasan paling banyak 12 kata.' },
+    ),
+  );
+  const used = new Set<number>();
+  const pilA = (Array.isArray(pil.artikel) ? pil.artikel : [])
+    .map((x) => ({ i: Number(String(x.no ?? '').replace(/^A/i, '')) - 1, alasan: s(x.alasan, 200), aspek: s(x.aspek, 20) }))
+    .filter((x) => Number.isInteger(x.i) && x.i >= 0 && x.i < poolA.length && !used.has(x.i) && used.add(x.i))
+    .slice(0, 5)
+    .map((x) => {
+      const w = poolA[x.i];
+      const abs = (w.abstract ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      return { work: { ...w, abstract: abs ? abs.slice(0, 2000) : undefined } as CrWork, alasan: x.alasan, aspek: x.aspek };
+    });
+  const usedB = new Set<number>();
+  const pilB: BukuItem[] = (Array.isArray(pil.buku) ? pil.buku : [])
+    .map((x) => ({ i: Number(String(x.no ?? '').replace(/^B/i, '')) - 1, alasan: s(x.alasan, 200) }))
+    .filter((x) => Number.isInteger(x.i) && x.i >= 0 && x.i < poolB.length && !usedB.has(x.i) && usedB.add(x.i))
+    .slice(0, 2)
+    .map((x) => {
+      const v = poolB[x.i].volumeInfo!;
+      const isbn = v.industryIdentifiers?.find((d) => d.type === 'ISBN_13')?.identifier ?? v.industryIdentifiers?.find((d) => d.type === 'ISBN_10')?.identifier ?? null;
+      const y = Number(v.publishedDate?.slice(0, 4));
+      return { id: poolB[x.i].id, judul: v.subtitle ? `${v.title}: ${v.subtitle}` : v.title!, penulis: v.authors ?? [], penerbit: v.publisher ?? null, tahun: Number.isInteger(y) && y > 0 ? y : null, isbn, url: v.canonicalVolumeLink ?? v.infoLink ?? null, alasan: x.alasan };
+    });
+  return {
+    kind: 'literatur',
+    tahap: TAHAP.literatur,
+    progres: TAHAP.literatur,
+    pertanyaan: pilA.length + pilB.length
+      ? `AISYS menemukan ${pilA.length} artikel (terbitan ${dariTahun} atau sesudahnya) dan ${pilB.length} buku yang relevan. Semuanya berasal dari Crossref dan Google Books dengan tautan asli. Pilih yang akan dipakai; yang terpilih masuk ke Pustaka naskah Anda.`
+      : 'Hasil pencarian kurang relevan. Tulis kata kunci lain untuk mencari ulang.',
+    opsi: [],
+    bebas: true,
+    literatur: { kueri: [...qa, ...qb], artikel: pilA, buku: pilB },
+  };
+}
+
+async function drafGiliran(req: Request, t: ThesisRow, st: PanduState, catatan?: string): Promise<Giliran> {
+  const ids = st.refIds ?? [];
+  const { data } = ids.length ? await admin.from('thesis_references').select('id, csl').eq('thesis_id', t.id).in('id', ids) : { data: [] };
+  const refs = ((data ?? []) as { id: string; csl: Csl }[]).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+  const daftar = refs
+    .map((r, i) => {
+      const abs = (r.csl.abstract ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 700);
+      return `R${i + 1}. ${cslAuthors(r.csl)} (${cslYear(r.csl) ?? 't.t.'}). ${r.csl.title ?? ''}.${abs ? `\n    Abstrak: ${abs}` : ''}`;
+    })
+    .join('\n');
+  const user = [konteks(st, t), refs.length ? `Rujukan terverifikasi:\n${daftar}` : 'Tidak ada rujukan terpilih; gunakan penanda [perlu rujukan] pada klaim yang memerlukan sumber.', catatan ? `Catatan revisi dari mahasiswa: ${catatan}` : ''].filter(Boolean).join('\n\n');
+  const j = await giliranAi(req, t.id, catatan ? 'Revisi draf' : 'Draf latar belakang', (call) =>
+    askJson<{ paragraf?: unknown; problem_statement?: unknown; research_questions?: unknown; research_objectives?: unknown }>(call, P.PANDU_DRAF, user, {
+      maxTokens: 7000,
+      temperature: 0.4,
+      ringkas: 'Paling banyak 5 paragraf, masing-masing paling banyak 120 kata.',
+    }),
+  );
+  const n = refs.length;
+  // Penanda sitasi hanya boleh merujuk rujukan yang ada.
+  const bersih = (p: string) =>
+    p.replace(/\[(R\d+(?:\s*[,;]\s*R\d+)*)\]/gi, (m, g: string) => {
+      const ok = g
+        .split(/[,;]/)
+        .map((x) => Number(x.trim().slice(1)))
+        .filter((k) => k >= 1 && k <= n);
+      return ok.length ? `[${ok.map((k) => `R${k}`).join(', ')}]` : '[perlu rujukan]';
+    });
+  const paragraf = arr(j.paragraf, 9, 3000).map(bersih);
+  if (!paragraf.length) throw new AiError('AISYS tidak menghasilkan draf. Coba lagi.');
+  return {
+    kind: 'draf',
+    tahap: TAHAP.draf,
+    progres: TAHAP.draf,
+    pertanyaan: 'Periksa draf berikut. Sisipkan ke Bab 1 bila sudah sesuai, atau tulis bagian yang perlu direvisi.',
+    opsi: [{ k: 'D', teks: 'Minta revisi (tulis catatan Anda)' }],
+    bebas: true,
+    draf: {
+      paragraf,
+      problem_statement: bersih(s(j.problem_statement, 800)),
+      research_questions: arr(j.research_questions, 3, 400),
+      research_objectives: arr(j.research_objectives, 3, 400),
+      refs: refs.map((r) => r.id),
+    },
+  };
+}
+
+async function simpanSesi(sesi: SesiRow, st: PanduState, tambahRiwayat?: { pertanyaan: string; jawaban: string }, status?: string) {
+  const riwayat = tambahRiwayat ? [...sesi.riwayat, { tahap: sesi.state.current?.progres ?? sesi.tahap, ...tambahRiwayat }].slice(-80) : sesi.riwayat;
+  const { error } = await admin
+    .from('ai_pandu_sessions')
+    .update({ state: st, tahap: st.step, riwayat, ...(status ? { status } : {}) })
+    .eq('id', sesi.id);
+  if (error) throw new UserError(error.message);
+  return { id: sesi.id, status: status ?? sesi.status, tahap: st.step, current: st.current ?? null, riwayat };
+}
+
+async function prodiKeluarga(t: ThesisRow): Promise<Keluarga> {
+  const { data } = await admin.from('prodi').select('kode, nama').eq('id', t.prodi_id).maybeSingle();
+  const p = data as { kode: string; nama: string } | null;
+  return p ? keluargaProdi(p.kode, p.nama) : 'SI';
+}
+
+aisysRouter.get(
+  '/pandu',
+  wrap(async (req, res) => {
+    const t = await loadThesis(req.query.thesis_id);
+    requireOwner(t, req.user!.id);
+    const { data } = await admin.from('ai_pandu_sessions').select('*').eq('thesis_id', t.id).eq('user_id', req.user!.id).neq('status', 'dibatalkan').order('created_at', { ascending: false }).limit(1).maybeSingle();
+    const sesi = data as SesiRow | null;
+    res.json({ sesi: sesi ? { id: sesi.id, status: sesi.status, tahap: sesi.tahap, current: sesi.state.current ?? null, riwayat: sesi.riwayat } : null });
+  }),
+);
+
+aisysRouter.post(
+  '/pandu/mulai',
+  wrap(async (req, res) => {
+    const t = await loadThesis(req.body?.thesis_id);
+    requireOwner(t, req.user!.id);
+    const out = await run(req, { peran: 'mahasiswa', thesisId: t.id, fitur: 'pandu_latar', cuplikan: t.judul }, async () => {
+      await admin.from('ai_pandu_sessions').update({ status: 'dibatalkan' }).eq('thesis_id', t.id).eq('user_id', req.user!.id).eq('status', 'aktif');
+      const keluarga = await prodiKeluarga(t);
+      const st: PanduState = {
+        step: 'topik',
+        keluarga,
+        current: {
+          kind: 'pilihan',
+          tahap: TAHAP.topik,
+          progres: 'Pembuka',
+          pengantar: 'Selamat datang di Pandu latar belakang AISYS. Saya akan membantu Anda menyusun draf Latar Belakang rencana skripsi secara bertahap: menentukan jenis skripsi, membedah alasan pemilihan topik, menyusun kerangka OMKKMASASOLTU, mencari literatur, lalu menyusun draf.',
+          pertanyaan: 'Beri tahu topik atau judul yang ingin Anda usulkan.',
+          opsi: [
+            { k: 'A', teks: `Pakai judul saat ini: ${t.judul}` },
+            { k: 'D', teks: 'Tulis topik atau judul lain' },
+          ],
+          bebas: true,
+        },
+      };
+      const { data, error } = await admin.from('ai_pandu_sessions').insert({ thesis_id: t.id, user_id: req.user!.id, state: st, tahap: 'topik' }).select('*').single();
+      if (error) throw new UserError(error.message);
+      const sesi = data as SesiRow;
+      return { sesi: { id: sesi.id, status: sesi.status, tahap: sesi.tahap, current: st.current, riwayat: [] } };
+    });
+    res.json(out);
+  }),
+);
+
+aisysRouter.post(
+  '/pandu/jawab',
+  wrap(async (req, res) => {
+    const sid = req.body?.sesi_id;
+    if (typeof sid !== 'string' || !/^[0-9a-f-]{36}$/i.test(sid)) throw new UserError('Sesi tidak valid');
+    const { data } = await admin.from('ai_pandu_sessions').select('*').eq('id', sid).maybeSingle();
+    const sesi = data as SesiRow | null;
+    if (!sesi || sesi.user_id !== req.user!.id) throw new UserError('Sesi tidak ditemukan');
+    if (sesi.status !== 'aktif') throw new UserError('Sesi ini sudah selesai. Mulai sesi baru bila ingin menyusun ulang.');
+    const t = await loadThesis(sesi.thesis_id);
+    requireOwner(t, req.user!.id);
+
+    const b = (req.body ?? {}) as { pilihan?: string; teks?: string; ref_ids?: unknown; aksi?: string };
+    const teks = typeof b.teks === 'string' ? b.teks.trim().slice(0, 2000) : '';
+    const pilihan = ['A', 'B', 'C', 'D'].includes(String(b.pilihan)) ? (b.pilihan as Opsi['k']) : null;
+    const st: PanduState = { ...sesi.state };
+    const cur = st.current!;
+    const pilihTeks = pilihan && pilihan !== 'D' ? cur.opsi.find((o) => o.k === pilihan)?.teks ?? '' : '';
+    const jawaban = pilihTeks || teks;
+    st.terakhirBebas = pilihan === 'D' || (!pilihan && teks) ? teks : undefined;
+
+    switch (st.step) {
+      case 'topik': {
+        const topik = pilihan === 'A' ? t.judul : teks;
+        if (topik.length < 8) throw new UserError('Tulis topik atau judul minimal beberapa kata');
+        st.topik = topik;
+        st.step = 'jenis';
+        st.current = pilihanJenis(st);
+        st.terakhirBebas = undefined;
+        return res.json(await simpanSesi(sesi, st, { pertanyaan: cur.pertanyaan, jawaban: topik }));
+      }
+      case 'jenis': {
+        if (pilihan === 'D') {
+          const j = await giliranAi(req, t.id, 'Bantu pilih jenis', (call) =>
+            askJson<{ penjelasan?: unknown; rekomendasi?: unknown }>(call, P.PANDU_JENIS_BANTU, `${konteks(st, t)}\n\nPilihan jenis:\n${JENIS[st.keluarga].map((j, i) => `${'ABC'[i]}. ${j.label}: ${j.isi}`).join('\n')}`, { maxTokens: 1500, ringkas: 'Penjelasan paling banyak 60 kata.' }),
+          );
+          const rek = ['A', 'B', 'C'].includes(String(j.rekomendasi)) ? String(j.rekomendasi) : '';
+          st.current = pilihanJenis(st, `${s(j.penjelasan, 900)}${rek ? ` Saran AISYS: pilihan ${rek}.` : ''}`);
+          return res.json(await simpanSesi(sesi, st, { pertanyaan: cur.pertanyaan, jawaban: 'Belum yakin' }));
+        }
+        if (!pilihan) throw new UserError('Pilih salah satu jenis');
+        st.jenis = 'ABC'.indexOf(pilihan);
+        const el = await giliranAi(req, t.id, 'Elemen kunci', (call) => askJson<{ elemen?: unknown; pengantar?: unknown }>(call, P.PANDU_ELEMEN, konteks(st, t), { maxTokens: 1500, ringkas: 'Paling banyak 4 elemen.' }));
+        const elemen = arr(el.elemen, 4, 120);
+        if (elemen.length < 2) throw new AiError('AISYS belum dapat memecah topik. Coba lagi.');
+        st.elemen = elemen.map((nama) => ({ nama }));
+        st.whyIdx = 0;
+        st.step = 'why';
+        st.terakhirBebas = undefined;
+        const g = await whyGiliran(req, t, st);
+        g.pengantar = s(el.pengantar, 600) || `Topik Anda saya pecah menjadi ${elemen.length} elemen: ${elemen.join('; ')}. Kita bahas alasannya satu per satu.`;
+        st.current = g;
+        return res.json(await simpanSesi(sesi, st, { pertanyaan: cur.pertanyaan, jawaban: JENIS[st.keluarga][st.jenis].label }));
+      }
+      case 'why': {
+        if (!jawaban) throw new UserError('Pilih salah satu opsi atau tulis jawaban Anda');
+        const i = st.whyIdx ?? 0;
+        st.elemen = st.elemen!.map((e, k) => (k === i ? { ...e, jawaban } : e));
+        if (i + 1 < st.elemen.length) {
+          st.whyIdx = i + 1;
+          st.current = await whyGiliran(req, t, st);
+        } else {
+          st.step = 'why_ringkas';
+          st.whyRingkas = await ringkas(req, t, st, 'WHY');
+          st.current = konfirmasi(TAHAP.why, `${TAHAP.why}, ringkasan`, st.whyRingkas);
+        }
+        return res.json(await simpanSesi(sesi, st, { pertanyaan: cur.pertanyaan, jawaban }));
+      }
+      case 'why_ringkas':
+      case 'frame_ringkas': {
+        const why = st.step === 'why_ringkas';
+        if (pilihan === 'A') {
+          st.terakhirBebas = undefined;
+          if (why) {
+            st.step = 'frame';
+            st.frame = {};
+            st.frameIdx = 0;
+            st.current = await frameGiliran(req, t, st, 'OMKKMASASOLTU adalah kerangka berpikir latar belakang: Objek, Metode yang ada, Kelebihan dan Kekurangan, Masalah pada metode terpilih, Solusi, dan Tujuan. Kita bahas satu poin per giliran.');
+          } else {
+            st.step = 'literatur';
+            st.current = await literaturGiliran(req, t, st);
+          }
+          return res.json(await simpanSesi(sesi, st, { pertanyaan: cur.pertanyaan, jawaban: 'Ya, sudah sesuai' }));
+        }
+        if (!teks) throw new UserError('Tulis koreksi untuk ringkasan');
+        const r = await ringkas(req, t, st, why ? 'WHY' : 'OMKKMASASOLTU', teks);
+        if (why) st.whyRingkas = r;
+        else st.frameRingkas = r;
+        st.current = konfirmasi(cur.tahap, cur.progres, r);
+        return res.json(await simpanSesi(sesi, st, { pertanyaan: cur.pertanyaan, jawaban: `Koreksi: ${teks}` }));
+      }
+      case 'frame': {
+        if (!jawaban) throw new UserError('Pilih salah satu opsi atau tulis jawaban Anda');
+        const i = st.frameIdx ?? 0;
+        st.frame = { ...(st.frame ?? {}), [FRAME[i].kode]: jawaban };
+        if (i + 1 < FRAME.length) {
+          st.frameIdx = i + 1;
+          st.current = await frameGiliran(req, t, st);
+        } else {
+          st.step = 'frame_ringkas';
+          st.frameRingkas = await ringkas(req, t, st, 'OMKKMASASOLTU');
+          st.current = konfirmasi(TAHAP.frame, `${TAHAP.frame}, ringkasan`, st.frameRingkas);
+        }
+        return res.json(await simpanSesi(sesi, st, { pertanyaan: cur.pertanyaan, jawaban }));
+      }
+      case 'literatur': {
+        if (b.aksi === 'cari_ulang') {
+          if (teks.length < 3) throw new UserError('Tulis kata kunci pencarian');
+          st.current = await literaturGiliran(req, t, st, teks);
+          return res.json(await simpanSesi(sesi, st, { pertanyaan: 'Cari ulang literatur', jawaban: teks }));
+        }
+        const ids = (Array.isArray(b.ref_ids) ? b.ref_ids : []).filter((x): x is string => typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x)).slice(0, 10);
+        if (ids.length) {
+          const { data: ok } = await admin.from('thesis_references').select('id').eq('thesis_id', t.id).in('id', ids);
+          st.refIds = ((ok ?? []) as { id: string }[]).map((r) => r.id);
+        } else st.refIds = [];
+        st.step = 'draf';
+        st.terakhirBebas = undefined;
+        st.current = await drafGiliran(req, t, st);
+        return res.json(await simpanSesi(sesi, st, { pertanyaan: cur.pertanyaan, jawaban: `${st.refIds.length} rujukan dipakai` }));
+      }
+      case 'draf': {
+        if (b.aksi === 'selesai') {
+          st.step = 'selesai';
+          st.current = {
+            kind: 'selesai',
+            tahap: TAHAP.selesai,
+            progres: TAHAP.selesai,
+            pertanyaan: 'Draf ini adalah bahan awal. Tulis ulang dengan bahasa Anda sendiri, periksa kembali semua sitasi dan data, lalu konsultasikan dengan dosen pembimbing.',
+            opsi: [],
+            bebas: false,
+          };
+          return res.json(await simpanSesi(sesi, st, { pertanyaan: cur.pertanyaan, jawaban: 'Disisipkan ke Bab 1' }, 'selesai'));
+        }
+        if (!teks) throw new UserError('Tulis catatan revisi untuk draf');
+        st.current = await drafGiliran(req, t, st, teks);
+        return res.json(await simpanSesi(sesi, st, { pertanyaan: 'Revisi draf', jawaban: teks }));
+      }
+      default:
+        throw new UserError('Sesi sudah selesai');
+    }
   }),
 );

@@ -33,7 +33,8 @@ Di Supabase Dashboard buka **SQL Editor**, lalu jalankan berkas berikut **beruru
 12. `supabase/migrations/20261028001200_kinerja.sql` (indeks dan aturan RLS yang lebih cepat; aman dijalankan ulang)
 13. `supabase/migrations/20261028001300_kunci_fase_judul.sql` (kunci bab setelah ACC, fase milestone, usulan perubahan judul, tautan sesi ke pengajuan bab, fitur AISYS baru)
 14. `supabase/migrations/20261029001400_daftar_akun.sql` (pendaftaran akun mahasiswa dan verifikasi Admin)
-15. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
+15. `supabase/migrations/20261029001500_pandu_latar.sql` (sesi AISYS Pandu latar belakang)
+16. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
 
 Atau jalankan satu berkas `supabase/setup_lengkap.sql` (gabungan semua di atas) pada proyek kosong.
 
@@ -140,6 +141,8 @@ Tombol **Sitasi** di toolbar dan panel **Pustaka** di editor naskah. Rujukan dis
 - **Skeleton** sesuai bentuk konten (tabel, kartu, detail, editor), muncul bila pemuatan lebih dari 150 ms.
 - **Menu sidebar** muncul satu per satu sekali saat aplikasi dibuka; nonaktif bila sistem meminta gerakan dikurangi.
 - **Ruang kerja naskah**: lebar penuh, sidebar menjadi ikon (melebar saat diarahkan kursor), mode fokus (Esc untuk keluar), kepala satu baris dengan menu Berkas, struktur dapat dilipat, tampilan Halaman A4 atau Lebar penuh, panel Catatan/Pustaka/AISYS bertab yang lebarnya dapat ditarik.
+- **Tabel**: baris berselang warna, baris yang diarahkan kursor disorot dengan garis aksen, dan tombol aksi baris diredupkan sampai barisnya diarahkan; baris yang baru diubah ditandai sebentar.
+- **Halaman masuk**: panel kiri berisi informasi dan formulir Masuk/Daftar (rata kanan), panel kanan foto kampus (`web/public/kampus.jpg`); di layar sempit foto menjadi banner di atas.
 - **Daftar dan detail berdampingan** di layar lebar (Bimbingan), bilah filter menempel, kolom pertama tabel menempel di layar sempit, dan pilihan **Kerapatan** (Nyaman/Rapat) di Profil.
 - Database proyek saat ini berada di eu-west-1 (Irlandia). Untuk pengguna di Indonesia, memindahkan proyek ke Singapura (ap-southeast-1) akan memangkas waktu tunggu tiap permintaan secara nyata.
 
@@ -151,7 +154,8 @@ Di editor naskah, panel AISYS berisi menu fitur per kelompok. Instruksi sistem m
 
 | Kelompok | Fitur | Hasil dan tindakan |
 | --- | --- | --- |
-| Menulis | Parafrase dan kembangkan | Dua varian parafrase (akademik, ringkas, sederhana); poin menjadi paragraf sesuai konteks bab |
+| Menulis | Pandu latar belakang | Tanya jawab bertahap, satu pertanyaan per giliran dengan opsi A-C atau jawaban sendiri: jenis skripsi sesuai prodi, pembedahan WHY, kerangka OMKKMASASOLTU, literatur nyata (Crossref 5 tahun terakhir dan Google Books), lalu draf bersitasi dengan Problem Statement, Research Question, dan Research Objective yang disisipkan ke subbab Latar Belakang, Rumusan Masalah, dan Tujuan di Bab 1. Sesi tersimpan; satu sesi dihitung satu pemakaian |
+| | Parafrase dan kembangkan | Dua varian parafrase (akademik, ringkas, sederhana); poin menjadi paragraf sesuai konteks bab |
 | | Kerangka subbab | Subbab sesuai pedoman prodi dan judul, dengan panduan isi; judul subbab yang dipilih disisipkan di akhir bab |
 | | Draf abstrak | Abstrak Indonesia dan Inggris dari seluruh naskah beserta kata kunci; bagian yang belum ada ditandai; dapat disisipkan di awal naskah |
 | Memeriksa | Periksa bab | Temuan kelengkapan, logika, dan bahasa terhadap pedoman prodi |

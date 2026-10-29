@@ -150,6 +150,51 @@ export const JENIS_EJAAN: Record<Koreksi['jenis'], string> = {
   kalimat_efektif: 'Kalimat efektif',
 };
 
+export interface PanduOpsi {
+  k: 'A' | 'B' | 'C' | 'D';
+  teks: string;
+}
+
+export interface PanduBuku {
+  id: string;
+  judul: string;
+  penulis: string[];
+  penerbit: string | null;
+  tahun: number | null;
+  isbn: string | null;
+  url: string | null;
+  alasan: string;
+}
+
+export interface PanduGiliran {
+  kind: 'pilihan' | 'konfirmasi' | 'literatur' | 'draf' | 'selesai';
+  tahap: string;
+  progres: string;
+  pengantar?: string;
+  umpan_balik?: string;
+  pertanyaan: string;
+  opsi: PanduOpsi[];
+  bebas: boolean;
+  ringkasan?: string;
+  literatur?: { kueri: string[]; artikel: { work: CrWork & { abstract?: string }; alasan: string; aspek: string }[]; buku: PanduBuku[] };
+  draf?: { paragraf: string[]; problem_statement: string; research_questions: string[]; research_objectives: string[]; refs: string[] };
+}
+
+export interface PanduSesi {
+  id: string;
+  status: 'aktif' | 'selesai' | 'dibatalkan';
+  tahap: string;
+  current: PanduGiliran | null;
+  riwayat: { tahap: string; pertanyaan: string; jawaban: string }[];
+}
+
+export interface PanduJawab {
+  pilihan?: PanduOpsi['k'];
+  teks?: string;
+  ref_ids?: string[];
+  aksi?: 'cari_ulang' | 'selesai';
+}
+
 export const aisys = {
   status: () => api<AisysStatus>('/aisys/status'),
   parafrase: (thesis_id: string, teks: string, gaya: GayaParafrase) => api<{ hasil: string[]; sisa: number | null }>('/aisys/parafrase', { body: { thesis_id, teks, gaya } }),
@@ -166,4 +211,7 @@ export const aisys = {
   ejaan: (thesis_id: string, bab: number, mulai: number) => api<HasilEjaan>('/aisys/ejaan', { body: { thesis_id, bab, mulai } }),
   abstrak: (thesis_id: string) => api<HasilAbstrak>('/aisys/abstrak', { body: { thesis_id } }),
   persiapanSeminar: (thesis_id: string, jenis: JenisUjian) => api<HasilPersiapan>('/aisys/persiapan-seminar', { body: { thesis_id, jenis } }),
+  pandu: (thesis_id: string) => api<{ sesi: PanduSesi | null }>(`/aisys/pandu?thesis_id=${encodeURIComponent(thesis_id)}`),
+  panduMulai: (thesis_id: string) => api<{ sesi: PanduSesi; sisa: number | null }>('/aisys/pandu/mulai', { body: { thesis_id } }),
+  panduJawab: (sesi_id: string, j: PanduJawab) => api<PanduSesi>('/aisys/pandu/jawab', { body: { sesi_id, ...j } }),
 };

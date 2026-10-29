@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { installRowRecent } from './lib/rowRecent';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
@@ -9,6 +10,8 @@ import { ShellProvider } from './lib/shell';
 import { DialogProvider } from './components/Dialog';
 import { ToastProvider } from './components/Toast';
 import './styles.css';
+
+installRowRecent();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

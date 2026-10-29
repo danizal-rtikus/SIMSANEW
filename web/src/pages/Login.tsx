@@ -9,7 +9,7 @@ import { IconEye, IconEyeOff, IconMoon, IconSun } from '../components/Icons';
 import { BRAND } from '../lib/brand';
 import { applyTheme, readTheme } from '../lib/theme';
 
-/** Fase studi akhir yang ditampilkan di panel institusi. */
+/** Fase studi akhir yang ditampilkan di bawah judul. */
 const FASE = [
   ['Persiapan', 'Pendaftaran dan penetapan pembimbing'],
   ['Proposal', 'Bab 1 sampai 3, Seminar Proposal'],
@@ -32,39 +32,7 @@ export function Login() {
 
   return (
     <div className="auth">
-      <aside className="auth-side" aria-label={BRAND.appLong}>
-        <div className="auth-brand">
-          <span className="auth-logo">
-            <img src={BRAND.logo} alt={`Logo ${BRAND.institution}`} />
-          </span>
-          <span>
-            <span className="auth-app">{BRAND.app}</span>
-            <span className="auth-inst">{BRAND.institutionLong}</span>
-          </span>
-        </div>
-
-        <div className="auth-main">
-          <h1>{BRAND.appLong}</h1>
-          <p className="lead">Pendaftaran, bimbingan, naskah, ujian, dan kelulusan skripsi atau tugas akhir tercatat dan disahkan di satu tempat.</p>
-          <ol className="auth-phases">
-            {FASE.map(([nama, isi], i) => (
-              <li key={nama}>
-                <span className="auth-phase-no">{i + 1}</span>
-                <span className="auth-phase-tx">
-                  <span className="auth-phase-name">{nama}</span>
-                  <span className="auth-phase-desc">{isi}</span>
-                </span>
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        <p className="auth-foot">
-          &copy; {new Date().getFullYear()} {BRAND.institutionLong}
-        </p>
-      </aside>
-
-      <main className="auth-form">
+      <section className="auth-panel">
         <button
           type="button"
           className="icon-btn theme-btn auth-theme"
@@ -78,19 +46,46 @@ export function Login() {
         >
           {theme === 'dark' ? <IconSun /> : <IconMoon />}
         </button>
-
-        <div className="auth-card">
-          <div className="auth-tabs" role="tablist" aria-label="Masuk atau daftar">
-            <button type="button" role="tab" aria-selected={mode === 'masuk'} className={mode === 'masuk' ? 'on' : ''} onClick={() => setMode('masuk')}>
-              Masuk
-            </button>
-            <button type="button" role="tab" aria-selected={mode === 'daftar'} className={mode === 'daftar' ? 'on' : ''} onClick={() => setMode('daftar')}>
-              Daftar akun
-            </button>
+        <div className="auth-inner">
+          <div className="auth-brand">
+            <span>
+              <span className="auth-app">{BRAND.app}</span>
+              <span className="auth-inst">{BRAND.institutionLong}</span>
+            </span>
+            <img className="auth-logo" src={BRAND.logo} alt={`Logo ${BRAND.institution}`} />
           </div>
-          {mode === 'masuk' ? <MasukForm onDaftar={() => setMode('daftar')} /> : <DaftarForm onMasuk={() => setMode('masuk')} />}
+          <div className="auth-head">
+            <h1>{BRAND.appLong}</h1>
+            <p className="lead">Pendaftaran, bimbingan, naskah, ujian, dan kelulusan skripsi atau tugas akhir tercatat dan disahkan di satu tempat.</p>
+            <p className="auth-flow" aria-label="Fase studi akhir">
+              {FASE.map(([nama], i) => (
+                <span key={nama}>
+                  {i > 0 && <span className="auth-flow-sep" aria-hidden />}
+                  {nama}
+                </span>
+              ))}
+            </p>
+          </div>
+          <div className="auth-card">
+            <div className="auth-tabs" role="tablist" aria-label="Masuk atau daftar">
+              <button type="button" role="tab" aria-selected={mode === 'masuk'} className={mode === 'masuk' ? 'on' : ''} onClick={() => setMode('masuk')}>
+                Masuk
+              </button>
+              <button type="button" role="tab" aria-selected={mode === 'daftar'} className={mode === 'daftar' ? 'on' : ''} onClick={() => setMode('daftar')}>
+                Daftar akun
+              </button>
+            </div>
+            {mode === 'masuk' ? <MasukForm onDaftar={() => setMode('daftar')} /> : <DaftarForm onMasuk={() => setMode('masuk')} />}
+          </div>
+          <p className="auth-foot">
+            &copy; {new Date().getFullYear()} {BRAND.institutionLong}
+          </p>
         </div>
-      </main>
+      </section>
+      <figure className="auth-photo">
+        <img src="/kampus.jpg" alt={`Gedung kampus ${BRAND.institution}`} />
+        <figcaption>Kampus {BRAND.institution}</figcaption>
+      </figure>
     </div>
   );
 }
@@ -311,10 +306,8 @@ function DaftarForm({ onMasuk }: { onMasuk: () => void }) {
 /** Bingkai sederhana untuk halaman status akun (dipakai halaman menunggu verifikasi). */
 export function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <div className="auth auth-solo">
-      <main className="auth-form">
-        <div className="auth-card wide">{children}</div>
-      </main>
+    <div className="auth-solo">
+      <div className="auth-card wide">{children}</div>
     </div>
   );
 }
