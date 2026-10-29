@@ -9,7 +9,7 @@ import { IconEye, IconEyeOff, IconMoon, IconSun } from '../components/Icons';
 import { BRAND } from '../lib/brand';
 import { applyTheme, readTheme } from '../lib/theme';
 
-/** Fase studi akhir yang ditampilkan di bawah judul. */
+/** Fase studi akhir yang ditampilkan di panel informasi. */
 const FASE = [
   ['Persiapan', 'Pendaftaran dan penetapan pembimbing'],
   ['Proposal', 'Bab 1 sampai 3, Seminar Proposal'],
@@ -32,40 +32,51 @@ export function Login() {
 
   return (
     <div className="auth">
-      <section className="auth-panel">
-        <button
-          type="button"
-          className="icon-btn theme-btn auth-theme"
-          onClick={() => {
-            const next = theme === 'dark' ? 'light' : 'dark';
-            applyTheme(next);
-            setTheme(next);
-          }}
-          aria-label={theme === 'dark' ? 'Ganti ke tema terang' : 'Ganti ke tema gelap'}
-          title={theme === 'dark' ? 'Tema terang' : 'Tema gelap'}
-        >
-          {theme === 'dark' ? <IconSun /> : <IconMoon />}
-        </button>
-        <div className="auth-inner">
-          <div className="auth-brand">
-            <span>
-              <span className="auth-app">{BRAND.app}</span>
-              <span className="auth-inst">{BRAND.institutionLong}</span>
-            </span>
-            <img className="auth-logo" src={BRAND.logo} alt={`Logo ${BRAND.institution}`} />
-          </div>
-          <div className="auth-head">
-            <h1>{BRAND.appLong}</h1>
-            <p className="lead">Pendaftaran, bimbingan, naskah, ujian, dan kelulusan skripsi atau tugas akhir tercatat dan disahkan di satu tempat.</p>
-            <p className="auth-flow" aria-label="Fase studi akhir">
-              {FASE.map(([nama], i) => (
-                <span key={nama}>
-                  {i > 0 && <span className="auth-flow-sep" aria-hidden />}
-                  {nama}
-                </span>
+      <div className="auth-shell">
+        <section className="auth-info" aria-label={BRAND.appLong}>
+          <button
+            type="button"
+            className="icon-btn theme-btn auth-theme"
+            onClick={() => {
+              const next = theme === 'dark' ? 'light' : 'dark';
+              applyTheme(next);
+              setTheme(next);
+            }}
+            aria-label={theme === 'dark' ? 'Ganti ke tema terang' : 'Ganti ke tema gelap'}
+            title={theme === 'dark' ? 'Tema terang' : 'Tema gelap'}
+          >
+            {theme === 'dark' ? <IconSun /> : <IconMoon />}
+          </button>
+          <div className="auth-inner">
+            <div className="auth-brand">
+              <span>
+                <span className="auth-app">{BRAND.app}</span>
+                <span className="auth-inst">{BRAND.institutionLong}</span>
+              </span>
+              <img className="auth-logo" src={BRAND.logo} alt={`Logo ${BRAND.institution}`} />
+            </div>
+            <div className="auth-head">
+              <h1>{BRAND.appLong}</h1>
+              <p className="lead">Pendaftaran, bimbingan, naskah, ujian, dan kelulusan skripsi atau tugas akhir tercatat dan disahkan di satu tempat.</p>
+            </div>
+            <ol className="auth-phases" aria-label="Fase studi akhir">
+              {FASE.map(([nama, isi], i) => (
+                <li key={nama}>
+                  <span className="auth-phase-no">{i + 1}</span>
+                  <span className="auth-phase-tx">
+                    <span className="auth-phase-name">{nama}</span>
+                    <span className="auth-phase-desc">{isi}</span>
+                  </span>
+                </li>
               ))}
+            </ol>
+            <p className="auth-foot">
+              &copy; {new Date().getFullYear()} {BRAND.institutionLong}
             </p>
           </div>
+        </section>
+        <section className="auth-visual">
+          <img className="auth-visual-img" src="/kampus.jpg" alt={`Gedung kampus ${BRAND.institution}`} />
           <div className="auth-card">
             <div className="auth-tabs" role="tablist" aria-label="Masuk atau daftar">
               <button type="button" role="tab" aria-selected={mode === 'masuk'} className={mode === 'masuk' ? 'on' : ''} onClick={() => setMode('masuk')}>
@@ -77,15 +88,9 @@ export function Login() {
             </div>
             {mode === 'masuk' ? <MasukForm onDaftar={() => setMode('daftar')} /> : <DaftarForm onMasuk={() => setMode('masuk')} />}
           </div>
-          <p className="auth-foot">
-            &copy; {new Date().getFullYear()} {BRAND.institutionLong}
-          </p>
-        </div>
-      </section>
-      <figure className="auth-photo">
-        <img src="/kampus.jpg" alt={`Gedung kampus ${BRAND.institution}`} />
-        <figcaption>Kampus {BRAND.institution}</figcaption>
-      </figure>
+          <span className="auth-visual-cap">Kampus {BRAND.institution}</span>
+        </section>
+      </div>
     </div>
   );
 }
