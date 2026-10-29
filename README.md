@@ -34,7 +34,8 @@ Di Supabase Dashboard buka **SQL Editor**, lalu jalankan berkas berikut **beruru
 13. `supabase/migrations/20261028001300_kunci_fase_judul.sql` (kunci bab setelah ACC, fase milestone, usulan perubahan judul, tautan sesi ke pengajuan bab, fitur AISYS baru)
 14. `supabase/migrations/20261029001400_daftar_akun.sql` (pendaftaran akun mahasiswa dan verifikasi Admin)
 15. `supabase/migrations/20261029001500_pandu_latar.sql` (sesi AISYS Pandu latar belakang)
-16. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
+16. `supabase/migrations/20261029001600_akreditasi.sql` (dashboard akreditasi: TS, batas tepat waktu, jumlah mahasiswa diterima, lembaga akreditasi per prodi)
+17. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
 
 Atau jalankan satu berkas `supabase/setup_lengkap.sql` (gabungan semua di atas) pada proyek kosong.
 
@@ -145,6 +146,18 @@ Tombol **Sitasi** di toolbar dan panel **Pustaka** di editor naskah. Rujukan dis
 - **Halaman masuk**: panel kiri berisi informasi dan formulir Masuk/Daftar (rata kanan), panel kanan foto kampus (`web/public/kampus.jpg`); di layar sempit foto menjadi banner di atas.
 - **Daftar dan detail berdampingan** di layar lebar (Bimbingan), bilah filter menempel, kolom pertama tabel menempel di layar sempit, dan pilihan **Kerapatan** (Nyaman/Rapat) di Profil.
 - Database proyek saat ini berada di eu-west-1 (Irlandia). Untuk pengguna di Indonesia, memindahkan proyek ke Singapura (ap-southeast-1) akan memangkas waktu tunggu tiap permintaan secara nyata.
+
+### Dashboard akreditasi
+
+Menu **Akreditasi** untuk Admin dan Pimpinan (semua prodi; Pimpinan hanya melihat) serta Ka. Prodi (prodinya sendiri).
+
+- **TS** ditetapkan Admin lewat tombol Pengaturan (tahun akademik Ganjil dan Genap); TS-1, TS-2, dan seterusnya mengikuti. Pengguna dapat melihat TS lain tanpa mengubah TS yang ditetapkan.
+- **Ringkasan**: lulusan TS, TS-1, TS-2; rata-rata masa studi dan persentase lulus tepat waktu (3 TS terakhir); rata-rata lama TA; kelulusan ujian pada percobaan pertama; mahasiswa berisiko terlambat.
+- **Tabel masa studi per angkatan** dalam bentuk tabel LKPS (S1 TS-6 sampai TS, D3 TS-4 sampai TS). Jumlah mahasiswa diterima diisi Admin atau Ka. Prodi agar persentase keberhasilan studi terhitung.
+- **Lama per tahap**, **ujian pada TS**, **beban pembimbingan dan pengujian per dosen** (P1/P2 per semester, sesi selesai, waktu tanggap review, kuota), **bidang kajian**.
+- **Unduh Excel**: ringkasan, tabel masa studi per prodi, pembimbingan, ujian, dan daftar berisiko.
+- Definisi: tanggal lulus = milestone Yudisium selesai; masa studi = semester lulus (sejak Ganjil tahun angkatan) / 2; tepat waktu = paling lambat semester 8 (S1) atau 6 (D3), dapat diubah Admin. Semester mengikuti Tahun Akademik di Master data. Data hanya mencakup mahasiswa yang tercatat di SIMSA.
+- Lembaga akreditasi per prodi (bawaan LAM INFOKOM; prodi desain LAM DEPILAR) dapat diubah Admin.
 
 ### AISYS (Akal Imitasi STIKOM Yos Sudarso)
 

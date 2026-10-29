@@ -17,6 +17,7 @@ import {
   IconTitle,
   IconUserCheck,
   IconUsers,
+  IconAward,
 } from '../components/Icons';
 
 export interface NavLeaf {
@@ -67,6 +68,7 @@ export function navFor(role: AppRole | undefined, c: NavCounts): NavSection[] {
       { to: '/monitoring?view=peta', label: 'Peta tahap' },
     ],
   };
+  const akreditasi: NavItem = { to: '/akreditasi', label: 'Akreditasi', icon: <IconAward /> };
   switch (role) {
     case 'mahasiswa':
       return [
@@ -163,7 +165,7 @@ export function navFor(role: AppRole | undefined, c: NavCounts): NavSection[] {
             ujianStaf,
           ],
         },
-        { label: 'Pemantauan', items: [monitoring] },
+        { label: 'Pemantauan', items: [monitoring, akreditasi] },
         {
           label: 'Pedoman dan pengaturan',
           items: [
@@ -177,7 +179,7 @@ export function navFor(role: AppRole | undefined, c: NavCounts): NavSection[] {
     case 'pimpinan':
       return [
         { label: 'Ujian', items: [ujianStaf] },
-        { label: 'Pemantauan', items: [monitoring] },
+        { label: 'Pemantauan', items: role === 'pimpinan' ? [monitoring, akreditasi] : [monitoring] },
         { label: 'Referensi', items: [pedoman] },
       ];
     case 'admin':
@@ -209,7 +211,7 @@ export function navFor(role: AppRole | undefined, c: NavCounts): NavSection[] {
             { to: '/pedoman/kelola', label: 'Kelola pedoman', icon: <IconLog /> },
           ],
         },
-        { label: 'Ujian dan pemantauan', items: [ujianStaf, monitoring] },
+        { label: 'Ujian dan pemantauan', items: [ujianStaf, monitoring, akreditasi] },
       ];
     default:
       return [];

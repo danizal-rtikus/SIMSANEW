@@ -29,6 +29,7 @@ const mPengguna = lazyModule(() => import('./pages/admin/Pengguna'));
 const mMaster = lazyModule(() => import('./pages/admin/MasterData'));
 const mAudit = lazyModule(() => import('./pages/admin/AuditLog'));
 const mAisys = lazyModule(() => import('./pages/admin/AisysLog'));
+const mAkreditasi = lazyModule(() => import('./pages/akreditasi/Akreditasi'));
 const mVerifikasi = lazyModule(() => import('./pages/admin/VerifikasiAkun'));
 const mNotif = lazyModule(() => import('./pages/Notifikasi'));
 const mProfil = lazyModule(() => import('./pages/Profil'));
@@ -54,6 +55,7 @@ const Pengguna = mPengguna('Pengguna');
 const MasterData = mMaster('MasterData');
 const AuditLog = mAudit('AuditLog');
 const AisysLog = mAisys('AisysLog');
+const Akreditasi = mAkreditasi('Akreditasi');
 const VerifikasiAkun = mVerifikasi('VerifikasiAkun');
 const Notifikasi = mNotif('Notifikasi');
 const Profil = mProfil('Profil');
@@ -82,6 +84,7 @@ const ReviewList = mReviewList('ReviewList');
     [/^\/admin\/master/, MasterData],
     [/^\/admin\/audit/, AuditLog],
     [/^\/admin\/aisys/, AisysLog],
+    [/^\/akreditasi/, Akreditasi],
     [/^\/admin\/verifikasi/, VerifikasiAkun],
     [/^\/notifikasi/, Notifikasi],
     [/^\/profil/, Profil],
@@ -179,6 +182,7 @@ export function App() {
         <Route path="admin/pengguna" element={<ForRole roles={['admin']}><Pengguna /></ForRole>} />
         <Route path="admin/master" element={<ForRole roles={['admin']}><MasterData /></ForRole>} />
         <Route path="admin/audit" element={<ForRole roles={['admin']}><AuditLog /></ForRole>} />
+        <Route path="akreditasi" element={<ForRole roles={['admin', 'pimpinan', 'kaprodi']}><Akreditasi /></ForRole>} />
         <Route path="admin/aisys" element={<ForRole roles={['admin']}><AisysLog /></ForRole>} />
         <Route path="admin/verifikasi" element={<ForRole roles={['admin']}><VerifikasiAkun /></ForRole>} />
         <Route path="notifikasi" element={<Notifikasi />} />
