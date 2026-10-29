@@ -11,11 +11,11 @@ import { applyTheme, readTheme } from '../lib/theme';
 
 /** Fase studi akhir beserta cuplikan layar (web/public/alur/<kunci>-terang|gelap.webp). */
 const FASE = [
-  { kunci: 'persiapan', nama: 'Persiapan', ringkas: 'Pendaftaran dan penetapan pembimbing', isi: 'Mahasiswa mengajukan judul dan sinopsis. Ka. Prodi menerima pendaftaran sekaligus menetapkan Pembimbing 1 dan 2.' },
-  { kunci: 'proposal', nama: 'Proposal', ringkas: 'Bab 1 sampai 3, Seminar Proposal', isi: 'Naskah ditulis langsung di SIMSA dan diajukan per bab. Pembimbing memberi catatan tepat pada kalimat yang dimaksud, dibantu pemeriksaan AISYS.' },
-  { kunci: 'hasil', nama: 'Hasil penelitian', ringkas: 'Bab 4 dan 5, Seminar Hasil', isi: 'Sitasi dan daftar pustaka tersusun otomatis dari Pustaka. Bab yang sudah di-ACC kedua pembimbing terkunci.' },
+  { kunci: 'persiapan', nama: 'Persiapan', ringkas: 'Pendaftaran dan penetapan pembimbing', isi: 'Mahasiswa mengajukan judul dan sinopsis. Tim Komisi Tugas Akhir menerima pendaftaran sekaligus menetapkan Pembimbing 1 dan 2 melalui Rapat.' },
+  { kunci: 'proposal', nama: 'Proposal', ringkas: 'Bab 1 sampai Bab 3, Seminar Proposal', isi: 'Naskah ditulis langsung di SIMSA dan diajukan per bab. Pembimbing memberi catatan tepat pada kalimat yang dimaksud.' },
+  { kunci: 'hasil', nama: 'Skripsi/Hasil', ringkas: 'Bab 4 dan 5, Seminar Hasil', isi: 'Sitasi dan daftar pustaka bisa disusun otomatis dari Pustaka. Bab yang sudah di-ACC kedua pembimbing terekam.' },
   { kunci: 'pendadaran', nama: 'Pendadaran', ringkas: 'Berkas dan sidang akhir', isi: 'Jadwal, panel penguji, penilaian, dan berita acara tercatat dalam satu halaman ujian.' },
-  { kunci: 'kelulusan', nama: 'Kelulusan', ringkas: 'Yudisium dan SK', isi: 'Setiap tahap disahkan pihak yang berwenang sampai yudisium dan SK, dengan riwayat yang dapat ditelusuri.' },
+  { kunci: 'kelulusan', nama: 'Kelulusan', ringkas: 'Yudisium dan SK Kelulusan', isi: 'Tahap kelulusan diverifikasi dan divalidasi oleh BAAK dan disahkan melalui Rapat Komisi Tugas Akhir dalam bentuk SK Kelulusan, dengan riwayat yang dapat ditelusuri.' },
 ];
 
 /** Alur studi akhir: pilih fase untuk melihat cuplikan layarnya. Berganti otomatis bila tidak sedang dipakai. */

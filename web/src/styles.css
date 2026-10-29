@@ -1260,7 +1260,7 @@ html[data-density='rapat'] .btn { min-height: 32px; padding-top: 5px; padding-bo
 .alur-panel { display: flex; flex-direction: column; gap: 6px; }
 .alur-panel h3 { margin: 4px 0 0; text-align: right; font-size: 16px; line-height: 1.35; font-weight: 600; color: var(--ink); }
 .alur-ringkas { display: block; font-size: 13px; font-weight: 500; color: var(--ink-3); }
-.alur-panel p { margin: 0 0 6px auto; max-width: 46ch; text-align: right; font-size: 14px; line-height: 1.55; color: var(--ink-2); min-height: 3.1em; }
+.alur-panel p { margin: 0 0 6px auto; max-width: 46ch; text-align: right; font-size: 14px; line-height: 1.55; color: var(--ink-2); min-height: 4.65em; }
 .alur-shot { position: relative; width: min(100%, 46vh); margin-left: auto; aspect-ratio: 16 / 10; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: var(--surface-2); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.08); }
 .alur-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left; opacity: 0; transition: opacity .45s ease; }
 .alur-shot img.on { opacity: 1; }
