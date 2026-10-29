@@ -9,14 +9,67 @@ import { IconEye, IconEyeOff, IconMoon, IconSun } from '../components/Icons';
 import { BRAND } from '../lib/brand';
 import { applyTheme, readTheme } from '../lib/theme';
 
-/** Fase studi akhir yang ditampilkan di panel informasi. */
+/** Fase studi akhir beserta cuplikan layar (web/public/alur/<kunci>-terang|gelap.webp). */
 const FASE = [
-  ['Persiapan', 'Pendaftaran dan penetapan pembimbing'],
-  ['Proposal', 'Bab 1 sampai 3, Seminar Proposal'],
-  ['Hasil penelitian', 'Bab 4 dan 5, Seminar Hasil'],
-  ['Pendadaran', 'Berkas dan sidang akhir'],
-  ['Kelulusan', 'Yudisium dan SK'],
+  { kunci: 'persiapan', nama: 'Persiapan', ringkas: 'Pendaftaran dan penetapan pembimbing', isi: 'Mahasiswa mengajukan judul dan sinopsis. Ka. Prodi menerima pendaftaran sekaligus menetapkan Pembimbing 1 dan 2.' },
+  { kunci: 'proposal', nama: 'Proposal', ringkas: 'Bab 1 sampai 3, Seminar Proposal', isi: 'Naskah ditulis langsung di SIMSA dan diajukan per bab. Pembimbing memberi catatan tepat pada kalimat yang dimaksud, dibantu pemeriksaan AISYS.' },
+  { kunci: 'hasil', nama: 'Hasil penelitian', ringkas: 'Bab 4 dan 5, Seminar Hasil', isi: 'Sitasi dan daftar pustaka tersusun otomatis dari Pustaka. Bab yang sudah di-ACC kedua pembimbing terkunci.' },
+  { kunci: 'pendadaran', nama: 'Pendadaran', ringkas: 'Berkas dan sidang akhir', isi: 'Jadwal, panel penguji, penilaian, dan berita acara tercatat dalam satu halaman ujian.' },
+  { kunci: 'kelulusan', nama: 'Kelulusan', ringkas: 'Yudisium dan SK', isi: 'Setiap tahap disahkan pihak yang berwenang sampai yudisium dan SK, dengan riwayat yang dapat ditelusuri.' },
 ];
+
+/** Alur studi akhir: pilih fase untuk melihat cuplikan layarnya. Berganti otomatis bila tidak sedang dipakai. */
+function AlurStudi({ theme }: { theme: 'light' | 'dark' }) {
+  const [i, setI] = useState(0);
+  const [jeda, setJeda] = useState(false);
+  const [diam] = useState(() => {
+    try {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (jeda || diam) return;
+    const t = window.setTimeout(() => setI((x) => (x + 1) % FASE.length), 6500);
+    return () => window.clearTimeout(t);
+  }, [i, jeda, diam]);
+  const f = FASE[i];
+  const tema = theme === 'dark' ? 'gelap' : 'terang';
+  return (
+    <section className="alur" aria-labelledby="alur-judul" onMouseEnter={() => setJeda(true)} onMouseLeave={() => setJeda(false)} onFocus={() => setJeda(true)} onBlur={() => setJeda(false)}>
+      <h2 id="alur-judul">Alur studi akhir</h2>
+      <div className="alur-steps" role="tablist" aria-label="Fase studi akhir">
+        {FASE.map((x, k) => (
+          <button
+            key={x.kunci}
+            type="button"
+            role="tab"
+            id={`alur-tab-${x.kunci}`}
+            aria-selected={k === i}
+            aria-controls="alur-panel"
+            className={`alur-step ${k === i ? 'on' : ''} ${k < i ? 'lewat' : ''}`}
+            onClick={() => setI(k)}
+          >
+            <span className="alur-no">{k + 1}</span>
+            <span className="alur-nama">{x.nama}</span>
+          </button>
+        ))}
+      </div>
+      <div className="alur-panel" id="alur-panel" role="tabpanel" aria-labelledby={`alur-tab-${f.kunci}`}>
+        <h3>
+          {f.nama} <span className="alur-ringkas">{f.ringkas}</span>
+        </h3>
+        <p>{f.isi}</p>
+        <div className="alur-shot">
+          {FASE.map((x, k) => (
+            <img key={x.kunci} src={`/alur/${x.kunci}-${tema}.webp`} alt={k === i ? `Cuplikan layar SIMSA, fase ${x.nama}` : ''} aria-hidden={k !== i} className={k === i ? 'on' : ''} width={1040} height={650} decoding="async" />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 type Mode = 'masuk' | 'daftar';
 
@@ -48,28 +101,14 @@ export function Login() {
             {theme === 'dark' ? <IconSun /> : <IconMoon />}
           </button>
           <div className="auth-inner">
-            <div className="auth-brand">
-              <span>
-                <span className="auth-app">{BRAND.app}</span>
-                <span className="auth-inst">{BRAND.institutionLong}</span>
-              </span>
-              <img className="auth-logo" src={BRAND.logo} alt={`Logo ${BRAND.institution}`} />
-            </div>
+            <p className="auth-eyebrow">
+              {BRAND.app} <span aria-hidden>·</span> {BRAND.institutionLong}
+            </p>
             <div className="auth-head">
               <h1>{BRAND.appLong}</h1>
               <p className="lead">Pendaftaran, bimbingan, naskah, ujian, dan kelulusan skripsi atau tugas akhir tercatat dan disahkan di satu tempat.</p>
             </div>
-            <ol className="auth-phases" aria-label="Fase studi akhir">
-              {FASE.map(([nama, isi], i) => (
-                <li key={nama}>
-                  <span className="auth-phase-no">{i + 1}</span>
-                  <span className="auth-phase-tx">
-                    <span className="auth-phase-name">{nama}</span>
-                    <span className="auth-phase-desc">{isi}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
+            <AlurStudi theme={theme} />
             <p className="auth-foot">
               &copy; {new Date().getFullYear()} {BRAND.institutionLong}
             </p>
@@ -77,16 +116,19 @@ export function Login() {
         </section>
         <section className="auth-visual">
           <img className="auth-visual-img" src="/kampus.jpg" alt={`Gedung kampus ${BRAND.institution}`} />
-          <div className="auth-card">
-            <div className="auth-tabs" role="tablist" aria-label="Masuk atau daftar">
-              <button type="button" role="tab" aria-selected={mode === 'masuk'} className={mode === 'masuk' ? 'on' : ''} onClick={() => setMode('masuk')}>
-                Masuk
-              </button>
-              <button type="button" role="tab" aria-selected={mode === 'daftar'} className={mode === 'daftar' ? 'on' : ''} onClick={() => setMode('daftar')}>
-                Daftar akun
-              </button>
+          <div className="auth-stack">
+            <img className="auth-visual-logo" src={BRAND.logo} alt={`Logo ${BRAND.institution}`} />
+            <div className="auth-card">
+              <div className="auth-tabs" role="tablist" aria-label="Masuk atau daftar">
+                <button type="button" role="tab" aria-selected={mode === 'masuk'} className={mode === 'masuk' ? 'on' : ''} onClick={() => setMode('masuk')}>
+                  Masuk
+                </button>
+                <button type="button" role="tab" aria-selected={mode === 'daftar'} className={mode === 'daftar' ? 'on' : ''} onClick={() => setMode('daftar')}>
+                  Daftar akun
+                </button>
+              </div>
+              {mode === 'masuk' ? <MasukForm onDaftar={() => setMode('daftar')} /> : <DaftarForm onMasuk={() => setMode('masuk')} />}
             </div>
-            {mode === 'masuk' ? <MasukForm onDaftar={() => setMode('daftar')} /> : <DaftarForm onMasuk={() => setMode('masuk')} />}
           </div>
           <span className="auth-visual-cap">Kampus {BRAND.institution}</span>
         </section>
