@@ -54,7 +54,7 @@ export function VerifikasiJudul() {
         ]}
       />
       {st.loading && !st.data ? (
-        <Loading />
+        <Loading variant="cards" />
       ) : st.error ? (
         <ErrorNote error={st.error} onRetry={st.reload} />
       ) : rows.length === 0 ? (

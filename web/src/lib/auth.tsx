@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import { queryClient } from './queryClient';
 import { supabase } from './supabase';
 import type { AppRole, Profile, RoleRow } from './types';
 import { ROLE_ORDER } from './labels';
@@ -104,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refresh: () => load(session),
       signOut: async () => {
         await supabase.auth.signOut();
+        // Buang simpanan data agar tidak terlihat oleh pengguna berikutnya di peramban yang sama.
+        queryClient.clear();
       },
     }),
     [session, profile, roles, active, setActive, loading, recovery, load],

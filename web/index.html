@@ -21,6 +21,7 @@
         var t = 'light';
         try { if (localStorage.getItem('simsa.theme') === 'dark') t = 'dark'; } catch (e) {}
         document.documentElement.setAttribute('data-theme', t);
+        try { if (localStorage.getItem('simsa.density') === 'rapat') document.documentElement.setAttribute('data-density', 'rapat'); } catch (e) {}
         if (t === 'dark') document.querySelector('meta[name="theme-color"]').setAttribute('content', '#18181b');
       })();
     </script>

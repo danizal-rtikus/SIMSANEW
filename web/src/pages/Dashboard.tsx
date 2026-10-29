@@ -39,7 +39,7 @@ export function Dashboard() {
     case 'admin':
       return <AdminHome />;
     default:
-      return <Loading />;
+      return <Loading variant="page" />;
   }
 }
 
@@ -70,7 +70,7 @@ function MahasiswaHome() {
     return { thesis, progress, milestones, sessions: sessions as Session[], titles: [] };
   }, [userId]);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="page" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const d = st.data!;
 
@@ -273,7 +273,7 @@ function DosenHome() {
     return { students, waiting: waiting as Session[], scheduled: scheduled as Session[], mine };
   }, [userId]);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="page" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const d = st.data!;
   const red = d.students.filter((s) => s.risiko === 'merah').length;
@@ -402,7 +402,7 @@ function KaprodiHome({ prodiId }: { prodiId: string }) {
     return { rows, judulCount: judulList.length, judulList, load, tmpl: tmpl as { urutan: number; nama: string; prodi_id: string | null; jenjang: string }[] };
   }, [prodiId]);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="page" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const d = st.data!;
   const aktif = d.rows.filter((r) => r.status === 'aktif');
@@ -531,7 +531,7 @@ function BaakHome() {
     return { rows, kind };
   }, []);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="page" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const { rows, kind } = st.data!;
   const aktif = rows.filter((r) => r.status === 'aktif');
@@ -586,7 +586,7 @@ function BaakHome() {
 function PimpinanHome() {
   const { profile } = useAuth();
   const st = useAsync(async () => (await must(supabase.from('v_thesis_progress').select('*'))) as Progress[], []);
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="page" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const rows = st.data!;
   const byProdi = new Map<string, Progress[]>();
@@ -704,7 +704,7 @@ function AdminHome() {
     return { count, prodi: (prodi as unknown[]).length, year: (year as { nama: string } | null)?.nama, logs: logs as { id: number; aksi: string; entitas: string; created_at: string }[], health, healthProblems };
   }, []);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="page" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const d = st.data!;
   return (

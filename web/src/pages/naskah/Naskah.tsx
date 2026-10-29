@@ -8,7 +8,7 @@ import { getMyThesis, getThesis, rpc } from '../../lib/queries';
 import { loadProdi } from '../../lib/master';
 import { fmtDateTime } from '../../lib/format';
 import { BRAND } from '../../lib/brand';
-import { useRegisterEntity } from '../../lib/shell';
+import { usePref, useRegisterEntity } from '../../lib/shell';
 import { naskahExtensions } from '../../lib/naskah/extensions';
 import { analyzeBlocks, countWords, initialDoc, type PmNode } from '../../lib/naskah/struktur';
 import { anchorComments, babState, loadReviewData, threads } from '../../lib/naskah/review';
@@ -16,6 +16,9 @@ import { CommentPanel } from './CommentPanel';
 import { AjukanBabModal, ImportWordModal } from './NaskahDialogs';
 import { CiteDialog, PustakaPanel, usePustaka, type CiteMode } from './Pustaka';
 import { AisysPanel } from './Aisys';
+import { FocusButton, Rail, SideDock, sideStyle, useMedia, useSideWidth } from './Workspace';
+import { Dropdown } from '../../components/Dropdown';
+import { useFocusMode } from '../../lib/workspace';
 import type { CiteStyle } from '../../lib/pustaka/format';
 import type { Reference } from '../../lib/pustaka/csl';
 import type { ResolvedImage } from '../../lib/naskah/docx';
@@ -29,7 +32,15 @@ import {
   IconAlignLeft,
   IconAlignRight,
   IconBook,
+  IconChat,
+  IconChevronDown,
+  IconChip,
+  IconClose,
   IconDownload,
+  IconOutline,
+  IconPage,
+  IconPlus,
+  IconWide,
   IconHistory,
   IconImage,
   IconIndent,
@@ -70,7 +81,7 @@ export function MyNaskah() {
   const { userId } = useAuth();
   const navigate = useNavigate();
   const st = useAsync(() => getMyThesis(userId!), [userId]);
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="editor" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   if (!st.data)
     return (
@@ -91,13 +102,14 @@ export function NaskahPage() {
 function NaskahView({ thesisId, self }: { thesisId: string; self?: boolean }) {
   const { userId } = useAuth();
   const st = useAsync(async () => {
-    const thesis = await getThesis(thesisId);
-    if (!thesis) throw new Error('Studi akhir tidak ditemukan atau Anda tidak berhak melihatnya');
-    const [row, mhs, prodi] = await Promise.all([
+    // Naskah dan studi akhir diambil bersamaan; profil menyusul karena butuh id mahasiswa.
+    const [thesis, row, prodi] = await Promise.all([
+      getThesis(thesisId),
       must(supabase.from('thesis_manuscripts').select('thesis_id, konten, revisi, jumlah_kata, updated_at').eq('thesis_id', thesisId).maybeSingle()),
-      must(supabase.from('profiles').select('nama, nim').eq('id', thesis.mahasiswa_id).maybeSingle()),
       loadProdi(),
     ]);
+    if (!thesis) throw new Error('Studi akhir tidak ditemukan atau Anda tidak berhak melihatnya');
+    const mhs = await must(supabase.from('profiles').select('nama, nim').eq('id', thesis.mahasiswa_id).maybeSingle());
     return {
       thesis,
       row: row as ManuscriptRow | null,
@@ -118,7 +130,7 @@ function NaskahView({ thesisId, self }: { thesisId: string; self?: boolean }) {
       : null,
   );
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="editor" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const { thesis, row, mhs, prodiNama } = st.data!;
   const canEdit = thesis.mahasiswa_id === userId && thesis.status === 'aktif';
@@ -411,18 +423,21 @@ function NaskahWorkspace({
   const commentMode: 'mahasiswa' | 'dosen' | 'baca' = isOwner ? 'mahasiswa' : myPeran ? 'dosen' : 'baca';
   const commentList = useMemo(() => threads((rv.data?.comments ?? []).filter((c) => c.terkirim)), [rv.data]);
   const activeCount = commentList.filter((t) => t.root.status !== 'selesai').length;
-  const [showComments, setShowComments] = useState<boolean | null>(null);
-  const [panel, setPanel] = useState<'pustaka' | 'aisys' | null>(null);
-  const pustakaOpen = panel === 'pustaka';
-  const aisysOpen = panel === 'aisys' && canEdit;
-  const commentsVisible = !panel && (showComments ?? activeCount > 0);
-  const sideVisible = (commentsVisible || !!panel) && !viewing;
-  const togglePanel = (p: 'pustaka' | 'aisys') => {
-    if (panel === p) {
-      setPanel(null);
-      setShowComments(false);
-    } else setPanel(p);
-  };
+  /* ---------- tata letak ruang kerja ---------- */
+  type Side = 'catatan' | 'pustaka' | 'aisys';
+  const [sideChoice, setSide] = useState<Side | null | undefined>(undefined);
+  // Panel catatan terbuka otomatis bila ada catatan dosen yang masih aktif.
+  const wide = useMedia('(min-width: 1400px)');
+  const roomy = useMedia('(min-width: 1101px)');
+  // Di layar sempit panel menimpa naskah, jadi tidak dibuka otomatis.
+  const side: Side | null = viewing ? null : sideChoice === undefined ? (roomy && rv.data && activeCount > 0 ? 'catatan' : null) : sideChoice;
+  const [sideW, setSideW] = useSideWidth();
+  const [outlinePref, setOutlinePref] = usePref<boolean>('nkOutline', true);
+  const [outlineDrawer, setOutlineDrawer] = useState(false);
+  const outlineOpen = wide ? outlinePref : outlineDrawer;
+  const toggleOutline = () => (wide ? setOutlinePref(!outlinePref) : setOutlineDrawer(!outlineDrawer));
+  const [view, setView] = usePref<'halaman' | 'lebar'>('nkView', 'halaman');
+  const [focus] = useFocusMode();
   const nomorPengajuan = useMemo(() => new Map<string, number>((rv.data?.submissions ?? []).map((x) => [x.id, x.nomor])), [rv.data]);
   const [orphans, setOrphans] = useState<Set<string>>(new Set());
 
@@ -457,61 +472,100 @@ function NaskahWorkspace({
     const dom = editor.view.nodeDOM(pos) as HTMLElement | null;
     dom?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     if (canEdit) editor.commands.setTextSelection(pos + 1);
+    if (!wide) setOutlineDrawer(false);
   };
 
-  if (!editor) return <Loading />;
+  if (!editor) return <Loading variant="editor" />;
+
+  const berkas = (
+    <Dropdown
+      align="right"
+      trigger={(open, toggle) => (
+        <Button onClick={toggle} aria-expanded={open} aria-haspopup="menu">
+          Berkas <IconChevronDown size={15} />
+        </Button>
+      )}
+    >
+      {(close) => {
+        const item = (label: ReactNode, fn: () => void, disabled?: boolean) => (
+          <button
+            type="button"
+            className="dd-item"
+            role="menuitem"
+            disabled={disabled}
+            onClick={() => {
+              close();
+              fn();
+            }}
+          >
+            {label}
+          </button>
+        );
+        return (
+          <>
+            {canEdit && item(<span className="dd-ic"><IconUpload size={16} /> Impor dari Word</span>, () => setImportOpen(true))}
+            {canEdit && item(<span className="dd-ic"><IconPlus size={16} /> Simpan versi</span>, saveVersion)}
+            {item(<span className="dd-ic"><IconHistory size={16} /> Riwayat versi</span>, () => setVersionsOpen(true))}
+            <div className="dd-sep" />
+            {item(<span className="dd-ic"><IconPrinter size={16} /> Cetak atau PDF</span>, printPdf)}
+            {item(<span className="dd-ic"><IconDownload size={16} /> {exporting ? 'Menyiapkan DOCX' : 'Unduh DOCX'}</span>, exportDocx, exporting)}
+          </>
+        );
+      }}
+    </Dropdown>
+  );
+
+  const outlineList = (
+    <aside className={`nk-outline ${wide ? '' : 'drawer'}`} aria-label="Struktur naskah">
+      <div className="nk-outline-title row-between">
+        <span>Struktur</span>
+        <button type="button" className="icon-btn sm" onClick={toggleOutline} aria-label="Sembunyikan struktur" title="Sembunyikan struktur">
+          <IconClose size={15} />
+        </button>
+      </div>
+      <ul>
+        {outline.map((o) => (
+          <li key={`${o.index}-${o.pos}`} className={`lv${o.level}`}>
+            <button type="button" onClick={() => jumpTo(o.pos)}>
+              {o.nomor && <span className="no">{o.nomor}</span>}
+              <span className="tx">{o.judul || <em className="muted">Tanpa judul</em>}</span>
+              {o.level === 1 && o.nomor && latestPerBab.get(o.bab)?.latest && (
+                <span className={`nk-bab-state ${latestPerBab.get(o.bab)!.tone}`}>{latestPerBab.get(o.bab)!.label}</span>
+              )}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </aside>
+  );
 
   return (
     <div className="nk-shell">
-      <div className="nk-head">
-        <div style={{ minWidth: 0 }}>
-          <h1 className="page-title">Naskah</h1>
-          <div className="nk-head-sub">
-            <span className="nk-title-line">{thesis.judul}</span>
-            <span className="nk-meta">
-              <SaveBadge state={canEdit ? save : null} savedAt={savedAt} onRetry={() => void doSave()} />
-              <span>{words.toLocaleString('id-ID')} kata</span>
-            </span>
-          </div>
+      <div className="nk-bar">
+        <button type="button" className={`icon-btn ${outlineOpen ? 'on' : ''}`} onClick={toggleOutline} aria-pressed={outlineOpen} aria-label="Struktur naskah" title={outlineOpen ? 'Sembunyikan struktur' : 'Tampilkan struktur'}>
+          <IconOutline size={18} />
+        </button>
+        <div className="nk-bar-title">
+          <h1 title={thesis.judul}>{thesis.judul}</h1>
+          <span className="nk-meta">
+            <SaveBadge state={canEdit ? save : null} savedAt={savedAt} onRetry={() => void doSave()} />
+            <span>{words.toLocaleString('id-ID')} kata</span>
+          </span>
         </div>
-        <div className="nk-head-actions">
-          {canEdit && (
-            <Button onClick={() => setImportOpen(true)}>
-              <IconUpload size={16} /> Impor dari Word
-            </Button>
-          )}
-          <Button onClick={() => setVersionsOpen(true)}>
-            <IconHistory size={16} /> Riwayat versi
-          </Button>
-          <Button onClick={printPdf}>
-            <IconPrinter size={16} /> Cetak atau PDF
-          </Button>
-          <Button onClick={exportDocx} loading={exporting}>
-            <IconDownload size={16} /> Unduh DOCX
-          </Button>
-          {canEdit && <Button onClick={saveVersion}>Simpan versi</Button>}
+        <div className="nk-bar-actions">
+          <div className="nk-seg nk-view" role="group" aria-label="Tampilan kertas">
+            <button type="button" className={view === 'halaman' ? 'on' : ''} aria-pressed={view === 'halaman'} title="Tampilan halaman A4" onClick={() => setView('halaman')}>
+              <IconPage size={16} />
+            </button>
+            <button type="button" className={view === 'lebar' ? 'on' : ''} aria-pressed={view === 'lebar'} title="Lebar penuh: margin kertas diperkecil" onClick={() => setView('lebar')}>
+              <IconWide size={16} />
+            </button>
+          </div>
+          <FocusButton />
+          {berkas}
           {canEdit && (
             <Button variant="primary" onClick={() => setAjukanOpen(true)}>
               Ajukan bab
-            </Button>
-          )}
-          {canEdit && (
-            <Button onClick={() => togglePanel('aisys')} aria-pressed={aisysOpen}>
-              AISYS
-            </Button>
-          )}
-          <Button onClick={() => togglePanel('pustaka')} aria-pressed={pustakaOpen}>
-            <IconBook size={16} /> Pustaka{pk.refs?.length ? ` (${pk.refs.length})` : ''}
-          </Button>
-          {commentList.length > 0 && (
-            <Button
-              onClick={() => {
-                setPanel(null);
-                setShowComments(!commentsVisible);
-              }}
-              aria-pressed={commentsVisible}
-            >
-              Catatan dosen{activeCount ? ` (${activeCount})` : ''}
             </Button>
           )}
         </div>
@@ -528,27 +582,16 @@ function NaskahWorkspace({
         </div>
       )}
       {!canEdit && !viewing && thesis.status !== 'aktif' && <div className="note nk-banner">Studi akhir tidak aktif; naskah hanya dapat dibaca.</div>}
-      {!isOwner && !viewing && rv.data && (
-        <SubmissionStrip data={rv.data} thesisId={thesis.id} userId={userId} />
-      )}
+      {!isOwner && !viewing && rv.data && <SubmissionStrip data={rv.data} thesisId={thesis.id} userId={userId} />}
 
-      <div className={`nk-body ${sideVisible ? 'with-comments' : ''}`}>
-        <aside className="nk-outline" aria-label="Struktur naskah">
-          <div className="nk-outline-title">Struktur</div>
-          <ul>
-            {outline.map((o) => (
-              <li key={`${o.index}-${o.pos}`} className={`lv${o.level}`}>
-                <button type="button" onClick={() => jumpTo(o.pos)}>
-                  {o.nomor && <span className="no">{o.nomor}</span>}
-                  <span className="tx">{o.judul || <em className="muted">Tanpa judul</em>}</span>
-                  {o.level === 1 && o.nomor && latestPerBab.get(o.bab)?.latest && (
-                    <span className={`nk-bab-state ${latestPerBab.get(o.bab)!.tone}`}>{latestPerBab.get(o.bab)!.label}</span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </aside>
+      <div className={`nk-ws ${outlineOpen && wide ? 'with-outline' : ''} ${side ? 'with-side' : ''} view-${view} ${focus ? 'is-focus' : ''}`} style={sideStyle(sideW)}>
+        {outlineOpen && wide && outlineList}
+        {outlineOpen && !wide && (
+          <>
+            <div className="nk-drawer-scrim" onClick={() => setOutlineDrawer(false)} />
+            {outlineList}
+          </>
+        )}
 
         <div className="nk-main">
           {canEdit && !viewing && <Toolbar editor={editor} thesisId={thesis.id} onCite={() => setCiteMode({ kind: 'insert' })} />}
@@ -556,22 +599,38 @@ function NaskahWorkspace({
             {viewing ? <ReadOnlyDoc konten={viewing.konten} refs={pk.refs} style={pk.style} /> : <EditorContent editor={editor} className="nk-paper" />}
           </div>
         </div>
-        {pustakaOpen && !viewing && pk.refs && (
-          <PustakaPanel editor={editor} refs={pk.refs} style={pk.style} canEdit={canEdit} onRefs={pk.setRefs} onAdd={() => setCiteMode({ kind: 'add' })} />
+
+        {side && (
+          <SideDock width={sideW} onWidth={setSideW} label={side === 'catatan' ? 'catatan' : side === 'pustaka' ? 'pustaka' : 'AISYS'}>
+            {side === 'pustaka' && pk.refs && <PustakaPanel editor={editor} refs={pk.refs} style={pk.style} canEdit={canEdit} onRefs={pk.setRefs} onAdd={() => setCiteMode({ kind: 'add' })} />}
+            {side === 'aisys' && canEdit && pk.refs && <AisysPanel editor={editor} thesisId={thesis.id} judul={thesis.judul} refs={pk.refs} onRefs={pk.setRefs} flush={flush} />}
+            {side === 'catatan' && rv.data && (
+              <CommentPanel
+                list={commentList}
+                mode={commentMode}
+                userId={userId}
+                peran={rv.data.peran}
+                activeId={activeId}
+                orphans={orphans}
+                nomorPengajuan={nomorPengajuan}
+                onActivate={activateComment}
+                onChanged={rv.reload}
+                empty="Komentar dosen muncul di sini setelah bab diajukan dan ditinjau."
+              />
+            )}
+            {((side === 'pustaka' && !pk.refs) || (side === 'catatan' && !rv.data)) && <Loading variant="block" />}
+          </SideDock>
         )}
-        {aisysOpen && !viewing && pk.refs && <AisysPanel editor={editor} thesisId={thesis.id} judul={thesis.judul} refs={pk.refs} onRefs={pk.setRefs} flush={flush} />}
-        {commentsVisible && !viewing && rv.data && (
-          <CommentPanel
-            list={commentList}
-            mode={commentMode}
-            userId={userId}
-            peran={rv.data.peran}
-            activeId={activeId}
-            orphans={orphans}
-            nomorPengajuan={nomorPengajuan}
-            onActivate={activateComment}
-            onChanged={rv.reload}
-            empty="Komentar dosen muncul di sini setelah bab diajukan dan ditinjau."
+
+        {!viewing && (
+          <Rail<Side>
+            value={side}
+            onChange={setSide}
+            items={[
+              { key: 'catatan', label: 'Catatan', icon: <IconChat size={18} />, count: activeCount },
+              { key: 'pustaka', label: 'Pustaka', icon: <IconBook size={18} />, count: pk.refs?.length },
+              { key: 'aisys', label: 'AISYS', icon: <IconChip size={18} />, hidden: !canEdit },
+            ]}
           />
         )}
       </div>
@@ -987,7 +1046,7 @@ function VersionsModal({ open, thesisId, onClose, onOpen }: { open: boolean; the
   return (
     <Modal open={open} onClose={onClose} wide title="Riwayat versi naskah">
       {rows === null ? (
-        <Loading />
+        <Loading variant="table" />
       ) : rows.length === 0 ? (
         <p className="muted">Belum ada versi tersimpan. Versi dibuat dengan tombol Simpan versi, dan nantinya otomatis saat naskah diajukan untuk direview.</p>
       ) : (

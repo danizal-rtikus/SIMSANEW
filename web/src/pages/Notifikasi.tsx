@@ -35,7 +35,7 @@ export function Notifikasi() {
     <>
       <PageHeader title="Notifikasi" description={unread ? `${unread} belum dibaca` : 'Semua notifikasi sudah dibaca'} actions={unread > 0 && <Button onClick={markAll}>Tandai semua dibaca</Button>} />
       {st.loading && !st.data ? (
-        <Loading />
+        <Loading variant="table" />
       ) : st.error ? (
         <ErrorNote error={st.error} onRetry={st.reload} />
       ) : (st.data ?? []).length === 0 ? (

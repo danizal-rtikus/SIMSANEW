@@ -98,7 +98,7 @@ export function AisysLog() {
   return (
     <>
       <PageHeader title="Log AISYS" description="Pemakaian AISYS oleh mahasiswa dan dosen. Hanya Admin yang dapat melihat halaman ini. Isi naskah dan jawaban AISYS tidak disimpan, hanya cuplikan pendek masukan." />
-      <div className="row" style={{ marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
+      <div className="row filterbar">
         <select style={{ maxWidth: 180 }} value={hari} onChange={(e) => setHari(Number(e.target.value))} aria-label="Periode">
           <option value={1}>24 jam terakhir</option>
           <option value={7}>7 hari terakhir</option>
@@ -120,7 +120,7 @@ export function AisysLog() {
         </select>
       </div>
       {st.loading && !st.data ? (
-        <Loading />
+        <Loading variant="page" />
       ) : st.error ? (
         <ErrorNote error={st.error} onRetry={st.reload} />
       ) : (

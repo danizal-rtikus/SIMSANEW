@@ -60,7 +60,7 @@ export function PenetapanPembimbing() {
     }
   }, [params, setParams, st.data]);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const all = st.data ?? [];
   const belum = all.filter(incomplete);

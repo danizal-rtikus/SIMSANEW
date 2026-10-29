@@ -21,7 +21,7 @@ export function MyThesis() {
   const { userId } = useAuth();
   const navigate = useNavigate();
   const st = useAsync(() => getMyThesis(userId!), [userId]);
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="detail" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   if (!st.data)
     return (
@@ -115,7 +115,7 @@ function ThesisView({ thesisId, self }: { thesisId: string; self?: boolean }) {
       : null,
   );
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="detail" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   if (!st.data) return <ErrorNote error="Data studi akhir tidak ditemukan atau Anda tidak memiliki akses." />;
   const { thesis, progress: p, milestones, sups, sessions, docs, history, mhs, approvals, examiners, exams } = st.data;

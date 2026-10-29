@@ -105,7 +105,7 @@ export function Pedoman() {
     }
   };
 
-  if (gl.loading && !gl.data) return <Loading />;
+  if (gl.loading && !gl.data) return <Loading variant="detail" />;
   if (gl.error) return <ErrorNote error={gl.error} onRetry={gl.reload} />;
   const guidelines = gl.data!.list;
   const g = guidelines.find((x) => x.id === guidelineId);
@@ -272,7 +272,7 @@ export function Pedoman() {
         </Panel>
         <Panel flush>
           {sec.loading && !sec.data ? (
-            <Loading />
+            <Loading variant="block" />
           ) : sec.error ? (
             <ErrorNote error={sec.error} onRetry={sec.reload} />
           ) : !current ? (

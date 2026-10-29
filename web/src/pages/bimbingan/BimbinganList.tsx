@@ -13,6 +13,8 @@ import { SessionBadge } from '../../components/StatusBits';
 import { Modal } from '../../components/Dialog';
 import { useToast } from '../../components/Toast';
 import { useQueryState } from '../../lib/shell';
+import { SplitView, useSplit } from '../../components/SplitView';
+import { SessionDetail } from './SessionDetail';
 
 export function BimbinganList() {
   const { active } = useAuth();
@@ -25,6 +27,7 @@ function MahasiswaSessions() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState(false);
+  const split = useSplit();
 
   const st = useAsync(async () => {
     const thesis = await getMyThesis(userId!);
@@ -45,7 +48,7 @@ function MahasiswaSessions() {
     }
   }, [params, setParams, st.data]);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const d = st.data!;
 
@@ -77,9 +80,15 @@ function MahasiswaSessions() {
         }
       />
       {noSup && <div className="note info" style={{ marginBottom: 16 }}>Pembimbing belum ditetapkan oleh Ka. Prodi. Pengajuan bimbingan dapat dilakukan setelah penetapan.</div>}
-      <Panel flush>
-        <SessionTable sessions={d.sessions} who="dosen" empty="Belum ada sesi bimbingan." />
-      </Panel>
+      <SplitView
+        open={!!split.id}
+        list={
+          <Panel flush>
+            <SessionTable sessions={d.sessions} who="dosen" empty="Belum ada sesi bimbingan." onOpen={split.wide ? split.open : undefined} activeId={split.id} compact={!!split.id} />
+          </Panel>
+        }
+        detail={split.id && <SessionDetail key={split.id} id={split.id} embedded onClose={split.close} onChanged={st.reload} />}
+      />
       <AjukanBimbinganModal
         open={open}
         onClose={() => setOpen(false)}
@@ -100,6 +109,7 @@ type Filter = 'diajukan' | 'dijadwalkan' | 'selesai' | 'semua';
 function DosenSessions() {
   const { userId } = useAuth();
   const [filter, setFilter] = useQueryState<Filter>('f', 'diajukan');
+  const split = useSplit();
   const st = useAsync(
     async () => (await must(supabase.from('guidance_sessions').select(SESSION_SELECT).eq('dosen_id', userId!).order('tanggal_usulan', { ascending: false }).limit(500))) as Session[],
     [userId],
@@ -110,7 +120,7 @@ function DosenSessions() {
     return c;
   }, [st.data]);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const rows = (st.data ?? []).filter((s) => filter === 'semua' || s.status === filter);
   const ordered = filter === 'dijadwalkan' ? [...rows].sort((a, b) => (a.tanggal_jadwal ?? '').localeCompare(b.tanggal_jadwal ?? '')) : rows;
@@ -128,16 +138,39 @@ function DosenSessions() {
           { value: 'semua', label: 'Semua' },
         ]}
       />
-      <Panel flush>
-        <SessionTable sessions={ordered} who="mahasiswa" empty="Tidak ada sesi pada daftar ini." />
-      </Panel>
+      <SplitView
+        open={!!split.id}
+        list={
+          <Panel flush>
+            <SessionTable sessions={ordered} who="mahasiswa" empty="Tidak ada sesi pada daftar ini." onOpen={split.wide ? split.open : undefined} activeId={split.id} compact={!!split.id} />
+          </Panel>
+        }
+        detail={split.id && <SessionDetail key={split.id} id={split.id} embedded onClose={split.close} onChanged={st.reload} />}
+      />
     </>
   );
 }
 
 /* ------------------------------------------------------------------ */
-export function SessionTable({ sessions, who, empty }: { sessions: Session[]; who: 'dosen' | 'mahasiswa'; empty: string }) {
+export function SessionTable({
+  sessions,
+  who,
+  empty,
+  onOpen,
+  activeId,
+  compact,
+}: {
+  sessions: Session[];
+  who: 'dosen' | 'mahasiswa';
+  empty: string;
+  /** Bila diisi, baris dibuka di panel samping alih-alih berpindah halaman. */
+  onOpen?: (id: string) => void;
+  activeId?: string | null;
+  /** Ringkas: kolom tambahan disembunyikan saat detail terbuka di samping. */
+  compact?: boolean;
+}) {
   const navigate = useNavigate();
+  const go = (id: string) => (onOpen ? onOpen(id) : navigate(`/bimbingan/${id}`));
   if (sessions.length === 0) return <p className="muted small" style={{ padding: 18 }}>{empty}</p>;
   return (
     <div className="table-wrap">
@@ -148,18 +181,29 @@ export function SessionTable({ sessions, who, empty }: { sessions: Session[]; wh
             <th>Topik</th>
             <th>{who === 'dosen' ? 'Pembimbing' : 'Mahasiswa'}</th>
             <th>Status</th>
-            <th>Hasil</th>
+            {!compact && <th>Hasil</th>}
           </tr>
         </thead>
         <tbody>
           {sessions.map((s) => (
-            <tr key={s.id} className="clickable" onClick={() => navigate(`/bimbingan/${s.id}`)}>
+            <tr key={s.id} className={`clickable ${activeId === s.id ? 'selected' : ''}`} onClick={() => go(s.id)}>
               <td className="small mono-num" style={{ whiteSpace: 'nowrap' }}>
                 {fmtDateTime(s.tanggal_jadwal ?? s.tanggal_usulan)}
                 <div className="muted">{MODE_LABEL[s.mode]}</div>
               </td>
               <td>
-                <Link to={`/bimbingan/${s.id}`} onClick={(e) => e.stopPropagation()} className="strong" style={{ color: 'inherit' }}>
+                <Link
+                  to={`/bimbingan/${s.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onOpen) {
+                      e.preventDefault();
+                      onOpen(s.id);
+                    }
+                  }}
+                  className="strong"
+                  style={{ color: 'inherit' }}
+                >
                   {s.topik}
                 </Link>
                 {s.milestone?.nama && <div className="muted small">{s.milestone.nama}</div>}
@@ -168,7 +212,7 @@ export function SessionTable({ sessions, who, empty }: { sessions: Session[]; wh
               <td>
                 <SessionBadge s={s.status as SessionStatus} />
               </td>
-              <td>{s.hasil ? <Badge tone={SESSION_RESULT[s.hasil].tone}>{SESSION_RESULT[s.hasil].label.split(',')[0]}</Badge> : <span className="muted">—</span>}</td>
+              {!compact && <td>{s.hasil ? <Badge tone={SESSION_RESULT[s.hasil].tone}>{SESSION_RESULT[s.hasil].label.split(',')[0]}</Badge> : <span className="muted">—</span>}</td>}
             </tr>
           ))}
         </tbody>

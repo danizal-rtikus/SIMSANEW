@@ -26,7 +26,7 @@ export function JudulMahasiswa() {
     return { thesis, subs };
   }, [userId]);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="detail" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const { thesis, subs } = st.data!;
   const pending = subs.some((s) => s.status === 'diajukan');

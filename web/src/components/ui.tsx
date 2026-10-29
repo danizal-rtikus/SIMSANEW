@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { Tone } from '../lib/labels';
 import { IconArrowLeft } from './Icons';
+import { Skeleton, type SkeletonVariant } from './Skeleton';
 
 export function Button({
   variant = 'secondary',
@@ -71,7 +72,12 @@ export function Field({ label, hint, error, children, className = '' }: { label:
   );
 }
 
-export function Loading({ label = 'Memuat…' }: { label?: string }) {
+/**
+ * Pemuat. Tanpa label: kerangka (skeleton) sesuai bentuk konten.
+ * Dengan label: putaran kecil dan teks (mis. "Mencari…").
+ */
+export function Loading({ label, variant }: { label?: string; variant?: SkeletonVariant }) {
+  if (!label) return <Skeleton variant={variant ?? 'block'} />;
   return (
     <div className="loading-block" role="status">
       <span className="spinner" /> {label}

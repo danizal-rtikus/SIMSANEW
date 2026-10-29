@@ -45,7 +45,7 @@ export function UjianDetail() {
 
   useRecordRecent(st.data ? { path: `/ujian/${st.data.exam.id}`, title: `${EXAM_LABEL[st.data.exam.jenis]}: ${st.data.exam.thesis?.mahasiswa?.nama ?? ''}`, sub: 'Ujian' } : null);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="detail" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   if (!st.data) return <ErrorNote error="Ujian tidak ditemukan atau Anda tidak memiliki akses." />;
   const { exam: e, panel, items, scores, notes, scale } = st.data;

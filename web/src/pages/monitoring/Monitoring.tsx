@@ -68,7 +68,7 @@ export function Monitoring() {
         description="Progres dan status risiko mahasiswa. Warna mengikuti ambang tiap prodi: lama tanpa bimbingan dan keterlambatan milestone."
         actions={<Button onClick={exportCsv} disabled={!rows.length}>Ekspor CSV</Button>}
       />
-      <div className="row" style={{ marginBottom: 14 }}>
+      <div className="row filterbar">
         <input style={{ maxWidth: 260 }} placeholder="Cari nama, NIM, judul, pembimbing" value={f.q} onChange={set('q')} aria-label="Cari" />
         {!scopedProdi && active?.role !== 'dosen' && (
           <select style={{ maxWidth: 220 }} value={f.prodi} onChange={set('prodi')} aria-label="Prodi">
@@ -116,7 +116,7 @@ export function Monitoring() {
         ]}
       />
       {st.loading && !st.data ? (
-        <Loading />
+        <Loading variant="table" />
       ) : st.error ? (
         <ErrorNote error={st.error} onRetry={st.reload} />
       ) : view === 'tabel' ? (
@@ -144,7 +144,7 @@ function Heatmap({ rows }: { rows: Progress[] }) {
     return out;
   }, [ids.join(',')]);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="block" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const byThesis = new Map<string, Map<number, MRow>>();
   (st.data ?? []).forEach((m) => {

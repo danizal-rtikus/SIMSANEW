@@ -46,7 +46,7 @@ export function MasterData() {
 function ProdiTab() {
   const st = useAsync(async () => (await must(supabase.from('prodi').select('*').order('jenjang').order('nama'))) as Prodi[], []);
   const [edit, setEdit] = useState<Partial<Prodi> | null>(null);
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   return (
     <>
@@ -193,7 +193,7 @@ function YearTab() {
     }
   };
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   return (
     <>

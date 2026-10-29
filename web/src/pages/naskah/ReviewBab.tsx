@@ -19,6 +19,7 @@ import { IconArrowLeft } from '../../components/Icons';
 import { imageView } from './Naskah';
 import { CommentPanel } from './CommentPanel';
 import { AisysReviewPanel } from './Aisys';
+import { FocusButton, SideDock, sideStyle, useSideWidth } from './Workspace';
 import { DiffView } from './DiffView';
 import { citedIds, loadCiteStyle, loadReferences } from '../../lib/pustaka/data';
 import type { Reference } from '../../lib/pustaka/csl';
@@ -30,22 +31,23 @@ export function ReviewBab() {
   const { thesisId, submissionId } = useParams();
   const { userId } = useAuth();
   const st = useAsync<Loaded>(async () => {
-    const [thesis, sub, data] = await Promise.all([
+    // Semua yang hanya butuh id diambil bersamaan pada tahap pertama.
+    const [thesis, sub, data, refs, full] = await Promise.all([
       getThesis(thesisId!),
       must(supabase.from('chapter_submissions').select(`${SUBMISSION_COLS}, konten`).eq('id', submissionId!).maybeSingle()),
       loadReviewData(thesisId!),
+      loadReferences(thesisId!).catch(() => [] as Reference[]),
+      // Urutan sitasi naskah lengkap, agar nomor IEEE di potongan bab sama dengan naskah.
+      supabase.from('thesis_manuscripts').select('konten').eq('thesis_id', thesisId!).maybeSingle().then((r) => (r.data as { konten: PmNode } | null)?.konten ?? null),
     ]);
     if (!thesis || !sub) throw new Error('Pengajuan tidak ditemukan atau Anda tidak berhak melihatnya');
     const s = sub as unknown as ChapterSubmission & { konten: PmNode };
     const prevMeta = data.submissions.filter((x) => x.bab === s.bab && x.nomor < s.nomor && x.status !== 'ditarik').pop() ?? null;
-    const [prev, mhs, approvals, refs, gaya, full] = await Promise.all([
+    const [prev, mhs, approvals, gaya] = await Promise.all([
       prevMeta ? must(supabase.from('chapter_submissions').select('konten').eq('id', prevMeta.id).single()) : Promise.resolve(null),
       must(supabase.from('profiles').select('nama, nim').eq('id', thesis.mahasiswa_id).maybeSingle()),
       s.milestone_id ? must(supabase.from('milestone_approvals').select('dosen_id, peran, created_at').eq('milestone_id', s.milestone_id)) : Promise.resolve([]),
-      loadReferences(thesisId!).catch(() => [] as Reference[]),
       loadCiteStyle(thesis.prodi_id),
-      // Urutan sitasi naskah lengkap, agar nomor IEEE di potongan bab sama dengan naskah.
-      supabase.from('thesis_manuscripts').select('konten').eq('thesis_id', thesisId!).maybeSingle().then((r) => (r.data as { konten: PmNode } | null)?.konten ?? null),
     ]);
     return {
       thesis,
@@ -65,7 +67,7 @@ export function ReviewBab() {
       : null,
   );
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="editor" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   return <ReviewView key={submissionId} d={st.data!} reload={st.reload} />;
 }
@@ -93,6 +95,7 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [sideW, setSideW] = useSideWidth();
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const myPeran = userId ? data.peran.get(userId) : undefined;
@@ -320,6 +323,7 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
             </div>
           </div>
           <div className="nk-head-actions">
+            <FocusButton />
             {myPeran && sub.status !== 'ditarik' && tab === 'naskah' && (
               <Button onClick={() => setAiOpen(!aiOpen)} aria-pressed={aiOpen}>
                 Periksa dengan AISYS
@@ -362,7 +366,7 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
           <div className="note">Ini pengajuan pertama untuk bab ini, belum ada versi pembanding.</div>
         )
       ) : (
-        <div className="nk-review">
+        <div className="nk-review" style={sideStyle(sideW)}>
           <div className="nk-paper-wrap" ref={wrapRef} onMouseUp={onMouseUp} style={{ position: 'relative' }}>
             {canComment && <div className="nk-hint small muted">Blok teks di naskah untuk memberi komentar.</div>}
             <EditorContent editor={editor} className="nk-paper" />
@@ -372,6 +376,7 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
               </button>
             )}
           </div>
+          <SideDock width={sideW} onWidth={setSideW} label={aiOpen ? 'AISYS' : 'komentar'}>
           {aiOpen && editor ? (
             <AisysReviewPanel editor={editor} submissionId={sub.id} canComment={canComment} draftMode={draftMode} footer={decision} onClose={() => setAiOpen(false)} onCommented={reload} />
           ) : (
@@ -412,6 +417,7 @@ function ReviewView({ d, reload }: { d: Loaded; reload: () => void }) {
             }
           />
           )}
+          </SideDock>
         </div>
       )}
 

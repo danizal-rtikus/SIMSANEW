@@ -32,7 +32,7 @@ export function AuditLog() {
   return (
     <>
       <PageHeader title="Audit log" description="Aksi sensitif: perubahan peran, pembimbing, keputusan judul, tenggat, dan status studi. Menampilkan 300 entri terbaru." />
-      <div className="row" style={{ marginBottom: 14 }}>
+      <div className="row filterbar">
         <select style={{ maxWidth: 240 }} value={entitas} onChange={(e) => setEntitas(e.target.value)} aria-label="Entitas">
           <option value="">Semua entitas</option>
           {ENTITAS.map((x) => (
@@ -43,7 +43,7 @@ export function AuditLog() {
         </select>
       </div>
       {st.loading && !st.data ? (
-        <Loading />
+        <Loading variant="table" />
       ) : st.error ? (
         <ErrorNote error={st.error} onRetry={st.reload} />
       ) : (

@@ -83,7 +83,7 @@ function StaffExams() {
     if (active?.role === 'kaprodi') rows = rows.filter((r) => r.thesis?.prodi_id === active.prodi_id);
     return rows;
   }, [active?.role, active?.prodi_id]);
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const all = st.data ?? [];
   const count = (s: StaffTab) => all.filter((e) => e.status === s).length;
@@ -121,7 +121,7 @@ function DosenExams() {
     const exams = (await must(supabase.from('exams').select(EXAM_SELECT).in('id', panel.map((p) => p.exam_id)).order('tanggal'))) as Exam[];
     return { panel, exams };
   }, [userId]);
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const { panel, exams } = st.data!;
   const mine = new Map(panel.map((p) => [p.exam_id, p]));
@@ -157,7 +157,7 @@ function MyExams() {
     const rows = (await must(supabase.from('exams').select(EXAM_SELECT).order('created_at', { ascending: false }))) as Exam[];
     return rows.filter((r) => r.thesis?.mahasiswa_id === userId);
   }, [userId]);
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   return (
     <>

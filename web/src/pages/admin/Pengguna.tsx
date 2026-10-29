@@ -82,7 +82,7 @@ export function Pengguna() {
           </>
         }
       />
-      <div className="row" style={{ marginBottom: 14 }}>
+      <div className="row filterbar">
         <input style={{ maxWidth: 320 }} placeholder="Cari nama, email, NIM, NIDN" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Cari pengguna" />
         <select
           style={{ maxWidth: 180 }}
@@ -105,7 +105,7 @@ export function Pengguna() {
       {st.error ? (
         <ErrorNote error={st.error} onRetry={st.reload} />
       ) : st.loading && !st.data ? (
-        <Loading />
+        <Loading variant="table" />
       ) : (
         <Panel flush>
           <div className="table-wrap">

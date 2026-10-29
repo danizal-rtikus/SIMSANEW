@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, roleKey } from '../lib/auth';
 import { supabase } from '../lib/supabase';
@@ -11,6 +11,10 @@ import { applyTheme, readTheme, type Theme } from '../lib/theme';
 import { useDialog } from './Dialog';
 import { BRAND } from '../lib/brand';
 import { CommandPalette } from './CommandPalette';
+import { Skeleton } from './Skeleton';
+import { Dropdown } from './Dropdown';
+import { preloadIdle, preloadPath } from '../lib/lazy';
+import { isWorkspacePath, useFocusMode } from '../lib/workspace';
 import {
   IconMoon,
   IconSun,
@@ -30,32 +34,8 @@ import {
   IconUserCircle,
 } from './Icons';
 
-/* ------------------------------------------------------------------
-   Menu tarik-turun sederhana (menggantikan menu bawaan browser)
-   ------------------------------------------------------------------ */
-function Dropdown({ trigger, children, align = 'left', className = '' }: { trigger: (open: boolean, toggle: () => void) => ReactNode; children: (close: () => void) => ReactNode; align?: 'left' | 'right'; className?: string }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-  return (
-    <div className={`dd ${className}`} ref={ref}>
-      {trigger(open, () => setOpen((o) => !o))}
-      {open && <div className={`dd-menu ${align}`} role="menu">{children(() => setOpen(false))}</div>}
-    </div>
-  );
-}
+/** Animasi menu sidebar hanya sekali per pembukaan aplikasi. */
+let introPlayed = false;
 
 export function Layout() {
   const { profile, roles, active, setActive, signOut, userId } = useAuth();
@@ -78,6 +58,36 @@ export function Layout() {
 
   const sections = useMemo<NavSection[]>(() => navFor(active?.role, counts), [active?.role, counts]);
   const { pathname, search } = location;
+  const workspace = isWorkspacePath(pathname);
+  const [focus, setFocus] = useFocusMode();
+  const [peek, setPeek] = useState(false);
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [intro, setIntro] = useState(() => !introPlayed);
+
+  useEffect(() => {
+    introPlayed = true;
+    const t = setTimeout(() => setIntro(false), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Keluar dari mode fokus saat meninggalkan ruang kerja atau menekan Esc.
+  useEffect(() => {
+    if (!workspace) setFocus(false);
+    setPeek(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspace]);
+  useEffect(() => {
+    if (!focus) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('.dialog-overlay, .overlay') && setFocus(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [focus, setFocus]);
+
+  // Muat kode halaman menu saat peramban senggang, agar perpindahan halaman instan.
+  useEffect(() => {
+    const paths = sections.flatMap((s) => s.items.flatMap((it) => [it.to, ...(it.children ?? []).map((c) => c.to)]));
+    preloadIdle(paths);
+  }, [sections]);
 
   useEffect(() => setMobileOpen(false), [pathname, search]);
 
@@ -93,9 +103,11 @@ export function Layout() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Catat halaman menu ke "Terakhir dibuka"
+  // Catat halaman menu ke "Terakhir dibuka" (tanpa parameter panel detail ?buka=).
   useEffect(() => {
     if (pathname === '/') return;
+    const sp = new URLSearchParams(search);
+    if (sp.has('buka')) return;
     for (const s of sections) {
       for (const it of s.items) {
         const leafs = it.children?.length ? it.children.map((c) => ({ ...c, parent: it.label })) : [{ ...it, parent: s.label }];
@@ -135,9 +147,14 @@ export function Layout() {
     };
   }, [userId]);
 
-  // Penghitung antrean per peran
+  // Penghitung antrean per peran. Saat berpindah halaman cukup diperbarui paling sering
+  // tiap 30 detik; perubahan notifikasi (tick) dan pergantian peran tetap langsung.
+  const countsAt = useRef<{ key: string; at: number }>({ key: '', at: 0 });
   useEffect(() => {
     if (!userId || !active) return;
+    const key = `${userId}|${active.role}|${active.prodi_id ?? ''}|${tick}`;
+    if (countsAt.current.key === key && Date.now() - countsAt.current.at < 30_000) return;
+    countsAt.current = { key, at: Date.now() };
     let alive = true;
     (async () => {
       let sesi = 0;
@@ -178,7 +195,22 @@ export function Layout() {
     navigate('/login');
   };
 
-  const isCollapsed = collapsed && !mobileOpen;
+  // Ruang kerja: sidebar menjadi deretan ikon dan melebar sementara saat diarahkan kursor.
+  const rail = (collapsed || workspace) && !mobileOpen;
+  const isCollapsed = rail && !peek;
+  const onSidebarEnter = () => {
+    if (!workspace || collapsed) return;
+    if (peekTimer.current) clearTimeout(peekTimer.current);
+    peekTimer.current = setTimeout(() => setPeek(true), 180);
+  };
+  const onSidebarLeave = () => {
+    if (peekTimer.current) clearTimeout(peekTimer.current);
+    setPeek(false);
+  };
+  // Nomor urut untuk animasi masuk menu (sekali saat aplikasi dibuka).
+  let order = 0;
+  const seq = (): CSSProperties | undefined => (intro ? ({ '--i': order++ } as CSSProperties) : undefined);
+  const pre = (to: string) => ({ onMouseEnter: () => preloadPath(to), onFocus: () => preloadPath(to) });
   const thesisContext = entity?.kind === 'thesis' && active?.role !== 'mahasiswa' ? entity : null;
   const back = active?.role === 'dosen' ? { to: '/dosen/mahasiswa', label: 'daftar mahasiswa' } : { to: '/monitoring', label: 'Monitoring' };
 
@@ -196,7 +228,7 @@ export function Layout() {
     const selfActive = matchLink(it.to, pathname, search, { end: it.end, exactQuery: !hasKids && (!!it.isDefault || it.to.includes('?')) });
     if (!hasKids || isCollapsed) {
       return (
-        <Link key={it.to + it.label} to={it.to} className={`sb-item ${selfActive ? 'active' : ''}`} title={isCollapsed ? it.label : undefined} aria-current={selfActive ? 'page' : undefined}>
+        <Link key={it.to + it.label} to={it.to} className={`sb-item ${selfActive ? 'active' : ''}`} style={seq()} {...pre(it.to)} title={isCollapsed ? it.label : undefined} aria-current={selfActive ? 'page' : undefined}>
           <span className="sb-icon">{it.icon}</span>
           <span className="sb-label">{it.label}</span>
           {!!it.count && <span className="sb-count">{it.count}</span>}
@@ -206,7 +238,7 @@ export function Layout() {
     const childActive = it.children!.some((c) => matchLink(c.to, pathname, search, { exactQuery: true }));
     const expanded = openGroups[it.label] ?? (childActive || matchLink(it.to, pathname, search));
     return (
-      <div key={it.label} className="sb-group">
+      <div key={it.label} className="sb-group" style={seq()}>
         <button className={`sb-item ${childActive && !expanded ? 'active' : ''}`} aria-expanded={expanded} onClick={() => setOpenGroups({ ...openGroups, [it.label]: !expanded })}>
           <span className="sb-icon">{it.icon}</span>
           <span className="sb-label">{it.label}</span>
@@ -218,7 +250,7 @@ export function Layout() {
             {it.children!.map((c) => {
               const a = matchLink(c.to, pathname, search, { exactQuery: true });
               return (
-                <Link key={c.to} to={c.to} className={`sb-subitem ${a ? 'active' : ''}`} aria-current={a ? 'page' : undefined}>
+                <Link key={c.to} to={c.to} className={`sb-subitem ${a ? 'active' : ''}`} {...pre(c.to)} aria-current={a ? 'page' : undefined}>
                   <span className="sb-label">{c.label}</span>
                   {!!c.count && <span className="sb-count">{c.count}</span>}
                 </Link>
@@ -231,7 +263,7 @@ export function Layout() {
   };
 
   const recentBlock = !isCollapsed && recents.length > 0 && (
-    <div className="sb-group">
+    <div className="sb-group" style={seq()}>
       <button className="sb-item" aria-expanded={recentsOpen} onClick={() => setRecentsOpen(!recentsOpen)}>
         <span className="sb-icon">
           <IconClock />
@@ -242,7 +274,7 @@ export function Layout() {
       {recentsOpen && (
         <div className="sb-sub">
           {recents.slice(0, 5).map((r) => (
-            <Link key={r.path} to={r.path} className={`sb-subitem two ${pathname + search === r.path ? 'active' : ''}`}>
+            <Link key={r.path} to={r.path} className={`sb-subitem two ${pathname + search === r.path ? 'active' : ''}`} {...pre(r.path)}>
               <span className="sb-label">{r.title}</span>
               {r.sub && <span className="sb-subtext">{r.sub}</span>}
             </Link>
@@ -254,9 +286,11 @@ export function Layout() {
 
   const favBlock = !isCollapsed && fav.list.length > 0 && (
     <>
-      <div className="sb-section">Favorit</div>
+      <div className="sb-section" style={seq()}>
+        Favorit
+      </div>
       {fav.list.map((f) => (
-        <Link key={f.path} to={f.path} className={`sb-item ${pathname === f.path.split('?')[0] ? 'active' : ''}`}>
+        <Link key={f.path} to={f.path} className={`sb-item ${pathname === f.path.split('?')[0] ? 'active' : ''}`} style={seq()} {...pre(f.path)}>
           <span className="sb-icon">
             <IconStar />
           </span>
@@ -267,9 +301,9 @@ export function Layout() {
   );
 
   return (
-    <div className={`app ${isCollapsed ? 'collapsed' : ''}`}>
+    <div className={`app ${rail ? 'rail' : ''} ${isCollapsed ? 'collapsed' : ''} ${peek ? 'peek' : ''} ${workspace ? 'ws' : ''} ${focus && workspace ? 'focus' : ''}`}>
       {mobileOpen && <div className="scrim" onClick={() => setMobileOpen(false)} />}
-      <aside className={`sidebar ${mobileOpen ? 'open' : ''}`} aria-label="Navigasi utama">
+      <aside className={`sidebar ${mobileOpen ? 'open' : ''}`} aria-label="Navigasi utama" onMouseEnter={onSidebarEnter} onMouseLeave={onSidebarLeave}>
         <div className="sb-head">
           <Dropdown
             className="sb-account"
@@ -323,10 +357,10 @@ export function Layout() {
           </button>
         </div>
 
-        <nav className="sb-nav">
+        <nav className={`sb-nav ${intro ? 'intro' : ''}`}>
           {thesisContext ? (
             <>
-              <Link to={back.to} className="sb-item sb-back" title={isCollapsed ? `Kembali ke ${back.label}` : undefined}>
+              <Link to={back.to} className="sb-item sb-back" style={seq()} {...pre(back.to)} title={isCollapsed ? `Kembali ke ${back.label}` : undefined}>
                 <span className="sb-icon">
                   <IconUndo />
                 </span>
@@ -344,7 +378,11 @@ export function Layout() {
               {favBlock}
               {sections.map((s, i) => (
                 <div key={s.label ?? i}>
-                  {s.label && !isCollapsed && <div className="sb-section">{s.label}</div>}
+                  {s.label && !isCollapsed && (
+                    <div className="sb-section" style={seq()}>
+                      {s.label}
+                    </div>
+                  )}
                   {isCollapsed && <div className="sb-divider" />}
                   {s.items.map(renderItem)}
                 </div>
@@ -354,7 +392,15 @@ export function Layout() {
         </nav>
 
         <div className="sb-foot">
-          <button className="icon-btn" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Lebarkan sidebar' : 'Ciutkan sidebar'} title={collapsed ? 'Lebarkan sidebar' : 'Ciutkan sidebar'}>
+          <button
+            className="icon-btn"
+            onClick={() => {
+              setPeek(false);
+              setCollapsed(!collapsed);
+            }}
+            aria-label={collapsed ? 'Lebarkan sidebar' : 'Ciutkan sidebar'}
+            title={workspace && !collapsed ? 'Sidebar otomatis menyempit di halaman naskah; klik untuk selalu menyempitkan' : collapsed ? 'Lebarkan sidebar' : 'Ciutkan sidebar'}
+          >
             <IconSidebar />
           </button>
         </div>
@@ -461,8 +507,10 @@ export function Layout() {
             )}
           </Dropdown>
         </header>
-        <main className="content">
-          <Outlet />
+        <main className={`content ${workspace ? 'content-ws' : ''}`}>
+          <Suspense fallback={<Skeleton variant={workspace ? 'editor' : 'page'} />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <CommandPalette open={palette} onClose={() => setPalette(false)} sections={sections} prodi={prodiList} />

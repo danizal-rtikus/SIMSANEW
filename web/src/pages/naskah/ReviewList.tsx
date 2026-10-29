@@ -21,7 +21,7 @@ export function ReviewList() {
   const navigate = useNavigate();
   const [tab, setTab] = useQueryState<Tab>('f', 'perlu');
   const st = useAsync(async () => (await rpc<ReviewQueueRow[]>('antrean_review', {})) ?? [], []);
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const all = st.data ?? [];
   const perlu = all.filter((r) => r.perlu_tinjau);

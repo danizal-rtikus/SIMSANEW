@@ -74,3 +74,10 @@ export const IconPrinter = (p: P) => <Svg {...p}><path d="M7 8V3.5h10V8" /><rect
 export const IconQuote = (p: P) => <Svg {...p}><path d="M5 7h14M9 11h10M9 15h10M5 19h14" /><path d="M5 11v4" /></Svg>;
 export const IconManuscript = (p: P) => <Svg {...p}><path d="M6 3h9l4 4v14H6z" /><path d="M15 3v4h4" /><path d="m9 16.5 5.5-5.5 1.5 1.5-5.5 5.5H9z" /></Svg>;
 export const IconMore = (p: P) => <Svg {...p}><circle cx="6" cy="12" r="1.3" fill="currentColor" /><circle cx="12" cy="12" r="1.3" fill="currentColor" /><circle cx="18" cy="12" r="1.3" fill="currentColor" /></Svg>;
+export const IconExpand = (p: P) => <Svg {...p}><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></Svg>;
+export const IconShrink = (p: P) => <Svg {...p}><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" /></Svg>;
+export const IconChip = (p: P) => <Svg {...p}><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M10 10h4v4h-4zM9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3" /></Svg>;
+export const IconOutline = (p: P) => <Svg {...p}><path d="M4 6h3M4 12h3M4 18h3M10 6h10M12 12h8M12 18h8" /></Svg>;
+export const IconPage = (p: P) => <Svg {...p}><rect x="6" y="3.5" width="12" height="17" rx="1.5" /><path d="M9 8h6M9 11.5h6M9 15h4" /></Svg>;
+export const IconWide = (p: P) => <Svg {...p}><rect x="3" y="5" width="18" height="14" rx="1.5" /><path d="M7 9h10M7 12h10M7 15h7" /></Svg>;
+export const IconClose = (p: P) => <Svg {...p}><path d="M6 6l12 12M18 6 6 18" /></Svg>;

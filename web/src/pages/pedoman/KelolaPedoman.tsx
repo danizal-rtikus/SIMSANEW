@@ -83,7 +83,7 @@ export function KelolaPedoman() {
         }
       />
       {gl.loading && !gl.data ? (
-        <Loading />
+        <Loading variant="table" />
       ) : gl.error ? (
         <ErrorNote error={gl.error} onRetry={gl.reload} />
       ) : !(gl.data ?? []).length ? (
@@ -126,7 +126,7 @@ export function KelolaPedoman() {
               flush
             >
               {sec.loading && !sec.data ? (
-                <Loading />
+                <Loading variant="block" />
               ) : ordered.length === 0 ? (
                 <p className="muted small" style={{ padding: 18 }}>
                   Belum ada bagian. Mulai dari Sistematika Penulisan agar sesuai dengan milestone.

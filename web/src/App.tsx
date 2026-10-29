@@ -10,28 +10,84 @@ import { BRAND } from './lib/brand';
 import { Login } from './pages/Login';
 import { ResetPassword } from './pages/ResetPassword';
 import { Dashboard } from './pages/Dashboard';
-import { JudulMahasiswa } from './pages/mahasiswa/Judul';
-import { BimbinganList } from './pages/bimbingan/BimbinganList';
-import { SessionDetail } from './pages/bimbingan/SessionDetail';
-import { MyThesis, ThesisPage } from './pages/thesis/ThesisDetail';
-import { DosenMahasiswa } from './pages/dosen/MahasiswaBimbingan';
-import { VerifikasiJudul } from './pages/kaprodi/VerifikasiJudul';
-import { PenetapanPembimbing } from './pages/kaprodi/Pembimbing';
-import { PengaturanProdi } from './pages/kaprodi/Pengaturan';
-import { Monitoring } from './pages/monitoring/Monitoring';
-import { Pedoman } from './pages/pedoman/Pedoman';
-import { KelolaPedoman } from './pages/pedoman/KelolaPedoman';
-import { Pengguna } from './pages/admin/Pengguna';
-import { MasterData } from './pages/admin/MasterData';
-import { AuditLog } from './pages/admin/AuditLog';
-import { AisysLog } from './pages/admin/AisysLog';
-import { Notifikasi } from './pages/Notifikasi';
-import { Profil } from './pages/Profil';
-import { UjianList } from './pages/ujian/UjianList';
-import { UjianDetail } from './pages/ujian/UjianDetail';
-import { MyNaskah, NaskahPage } from './pages/naskah/Naskah';
-import { ReviewBab } from './pages/naskah/ReviewBab';
-import { ReviewList } from './pages/naskah/ReviewList';
+import { lazyModule, registerPreload } from './lib/lazy';
+
+/* Halaman selain Beranda dimuat saat dibutuhkan agar muatan awal kecil. */
+const mJudul = lazyModule(() => import('./pages/mahasiswa/Judul'));
+const mBimbinganList = lazyModule(() => import('./pages/bimbingan/BimbinganList'));
+const mSession = lazyModule(() => import('./pages/bimbingan/SessionDetail'));
+const mThesis = lazyModule(() => import('./pages/thesis/ThesisDetail'));
+const mDosen = lazyModule(() => import('./pages/dosen/MahasiswaBimbingan'));
+const mVerif = lazyModule(() => import('./pages/kaprodi/VerifikasiJudul'));
+const mPembimbing = lazyModule(() => import('./pages/kaprodi/Pembimbing'));
+const mPengaturan = lazyModule(() => import('./pages/kaprodi/Pengaturan'));
+const mMonitoring = lazyModule(() => import('./pages/monitoring/Monitoring'));
+const mPedoman = lazyModule(() => import('./pages/pedoman/Pedoman'));
+const mKelola = lazyModule(() => import('./pages/pedoman/KelolaPedoman'));
+const mPengguna = lazyModule(() => import('./pages/admin/Pengguna'));
+const mMaster = lazyModule(() => import('./pages/admin/MasterData'));
+const mAudit = lazyModule(() => import('./pages/admin/AuditLog'));
+const mAisys = lazyModule(() => import('./pages/admin/AisysLog'));
+const mNotif = lazyModule(() => import('./pages/Notifikasi'));
+const mProfil = lazyModule(() => import('./pages/Profil'));
+const mUjianList = lazyModule(() => import('./pages/ujian/UjianList'));
+const mUjianDetail = lazyModule(() => import('./pages/ujian/UjianDetail'));
+const mNaskah = lazyModule(() => import('./pages/naskah/Naskah'));
+const mReviewBab = lazyModule(() => import('./pages/naskah/ReviewBab'));
+const mReviewList = lazyModule(() => import('./pages/naskah/ReviewList'));
+
+const JudulMahasiswa = mJudul('JudulMahasiswa');
+const BimbinganList = mBimbinganList('BimbinganList');
+const SessionDetail = mSession('SessionDetail');
+const MyThesis = mThesis('MyThesis');
+const ThesisPage = mThesis('ThesisPage');
+const DosenMahasiswa = mDosen('DosenMahasiswa');
+const VerifikasiJudul = mVerif('VerifikasiJudul');
+const PenetapanPembimbing = mPembimbing('PenetapanPembimbing');
+const PengaturanProdi = mPengaturan('PengaturanProdi');
+const Monitoring = mMonitoring('Monitoring');
+const Pedoman = mPedoman('Pedoman');
+const KelolaPedoman = mKelola('KelolaPedoman');
+const Pengguna = mPengguna('Pengguna');
+const MasterData = mMaster('MasterData');
+const AuditLog = mAudit('AuditLog');
+const AisysLog = mAisys('AisysLog');
+const Notifikasi = mNotif('Notifikasi');
+const Profil = mProfil('Profil');
+const UjianList = mUjianList('UjianList');
+const UjianDetail = mUjianDetail('UjianDetail');
+const MyNaskah = mNaskah('MyNaskah');
+const NaskahPage = mNaskah('NaskahPage');
+const ReviewBab = mReviewBab('ReviewBab');
+const ReviewList = mReviewList('ReviewList');
+
+// Urutan penting: pola yang lebih spesifik lebih dulu.
+(
+  [
+    [/^\/judul/, JudulMahasiswa],
+    [/^\/bimbingan\/./, SessionDetail],
+    [/^\/bimbingan/, BimbinganList],
+    [/^\/(studi-akhir|mahasiswa-bimbingan)/, MyThesis],
+    [/^\/dosen\/mahasiswa/, DosenMahasiswa],
+    [/^\/kaprodi\/judul/, VerifikasiJudul],
+    [/^\/kaprodi\/pembimbing/, PenetapanPembimbing],
+    [/^\/kaprodi\/pengaturan/, PengaturanProdi],
+    [/^\/monitoring/, Monitoring],
+    [/^\/pedoman\/kelola/, KelolaPedoman],
+    [/^\/pedoman/, Pedoman],
+    [/^\/admin\/pengguna/, Pengguna],
+    [/^\/admin\/master/, MasterData],
+    [/^\/admin\/audit/, AuditLog],
+    [/^\/admin\/aisys/, AisysLog],
+    [/^\/notifikasi/, Notifikasi],
+    [/^\/profil/, Profil],
+    [/^\/ujian\/./, UjianDetail],
+    [/^\/ujian/, UjianList],
+    [/^\/naskah\/[^/]+\/ajuan/, ReviewBab],
+    [/^\/naskah/, MyNaskah],
+    [/^\/review/, ReviewList],
+  ] as const
+).forEach(([re, C]) => registerPreload(re, C.preload));
 
 function SetupNeeded() {
   return (

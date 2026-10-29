@@ -30,7 +30,8 @@ Di Supabase Dashboard buka **SQL Editor**, lalu jalankan berkas berikut **beruru
 9. `supabase/migrations/20261028000900_review_dua_pembimbing.sql` (review oleh dua pembimbing secara paralel, kirim komentar tanpa keputusan)
 10. `supabase/migrations/20261028001000_pustaka.sql` (pustaka rujukan naskah untuk sitasi dan daftar pustaka otomatis)
 11. `supabase/migrations/20261028001100_aisys.sql` (catatan pemakaian AISYS, hanya dapat dibaca Admin)
-12. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
+12. `supabase/migrations/20261028001200_kinerja.sql` (indeks dan aturan RLS yang lebih cepat; aman dijalankan ulang)
+13. `supabase/seed.sql` (opsional, data contoh; ganti dengan prodi asli Anda)
 
 Atau jalankan satu berkas `supabase/setup_lengkap.sql` (gabungan semua di atas) pada proyek kosong.
 
@@ -130,6 +131,16 @@ Tombol **Sitasi** di toolbar dan panel **Pustaka** di editor naskah. Rujukan dis
 - Ekspor DOCX dan cetak memuat teks sitasi dan daftar pustaka dengan inden gantung. Dosen melihat sitasi yang sama pada halaman review bab.
 - Hanya mahasiswa pemilik yang dapat mengubah pustaka; pembimbing dan pihak lain yang berhak melihat studi akhir dapat membaca.
 
+### Tampilan dan kecepatan
+
+- **Simpanan data** (TanStack Query): halaman yang pernah dibuka tampil langsung dari simpanan lalu diperbarui di latar. Simpanan dikosongkan saat keluar.
+- **Kode per halaman**: setiap halaman dimuat saat dibutuhkan; halaman menu dimuat lebih awal saat peramban senggang dan saat kursor berada di atas menu.
+- **Skeleton** sesuai bentuk konten (tabel, kartu, detail, editor), muncul bila pemuatan lebih dari 150 ms.
+- **Menu sidebar** muncul satu per satu sekali saat aplikasi dibuka; nonaktif bila sistem meminta gerakan dikurangi.
+- **Ruang kerja naskah**: lebar penuh, sidebar menjadi ikon (melebar saat diarahkan kursor), mode fokus (Esc untuk keluar), kepala satu baris dengan menu Berkas, struktur dapat dilipat, tampilan Halaman A4 atau Lebar penuh, panel Catatan/Pustaka/AISYS bertab yang lebarnya dapat ditarik.
+- **Daftar dan detail berdampingan** di layar lebar (Bimbingan), bilah filter menempel, kolom pertama tabel menempel di layar sempit, dan pilihan **Kerapatan** (Nyaman/Rapat) di Profil.
+- Database proyek saat ini berada di eu-west-1 (Irlandia). Untuk pengguna di Indonesia, memindahkan proyek ke Singapura (ap-southeast-1) akan memangkas waktu tunggu tiap permintaan secara nyata.
+
 ### AISYS (Akal Imitasi STIKOM Yos Sudarso)
 
 Asisten AI yang dipanggil lewat server Node.js (`/api/aisys/*`), memakai endpoint kompatibel OpenAI (SumoPod). Kunci API hanya ada di server.
@@ -160,7 +171,7 @@ Asisten AI yang dipanggil lewat server Node.js (`/api/aisys/*`), memakai endpoin
 
 Komentar tertambat pada kutipan teks, sehingga tetap menempel di naskah yang direvisi. Halaman review menampilkan Track Changes per kata antara pengajuan sebelumnya dan pengajuan baru. ACC dari pembimbing pada pengajuan sebelumnya tetap berlaku; bab selesai setelah Pembimbing 1 dan 2 sama-sama ACC.
 
-Setelah menarik pembaruan ini jalankan `npm install` di folder `web` (paket editor Tiptap, pembuat DOCX, dan pembaca file Word).
+Setelah menarik pembaruan ini jalankan `npm install` di folder `web` (paket editor Tiptap, pembuat DOCX, pembaca file Word, dan TanStack Query).
 
 Indikator risiko di `v_thesis_progress`: **kritis** bila lewat tenggat ≥ 30 hari atau tanpa bimbingan ≥ 60 hari; **waspada** bila lewat tenggat ≥ 14 hari, tanpa bimbingan ≥ 30 hari, atau tenggat ≤ 7 hari lagi. Ambang dapat diubah per prodi di menu Pengaturan prodi. Skor EWS lengkap ada di Fase 2.
 

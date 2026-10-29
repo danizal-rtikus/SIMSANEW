@@ -13,7 +13,7 @@ export function DosenMahasiswa() {
   const [risk, setRisk] = useState('');
   const st = useAsync(() => getSupervisedProgress(userId!), [userId]);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const rows = (st.data ?? []).filter(
     (r) =>

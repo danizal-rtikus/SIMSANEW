@@ -13,7 +13,7 @@ import { SessionBadge } from '../../components/StatusBits';
 import { Modal, useDialog } from '../../components/Dialog';
 import { useToast } from '../../components/Toast';
 import { useRecordRecent } from '../../lib/shell';
-import { IconFile, IconUpload } from '../../components/Icons';
+import { IconClose, IconFile, IconUpload } from '../../components/Icons';
 
 interface CommentRow {
   id: string;
@@ -25,8 +25,9 @@ interface CommentRow {
   penulis?: { nama: string } | null;
 }
 
-export function SessionDetail() {
-  const { id } = useParams();
+export function SessionDetail({ id: propId, embedded, onClose, onChanged }: { id?: string; embedded?: boolean; onClose?: () => void; onChanged?: () => void } = {}) {
+  const params = useParams();
+  const id = propId ?? params.id;
   const { userId, active } = useAuth();
   const dialog = useDialog();
   const toast = useToast();
@@ -44,7 +45,7 @@ export function SessionDetail() {
 
   useRecordRecent(st.data ? { path: `/bimbingan/${st.data.s.id}`, title: st.data.s.topik, sub: `Sesi bimbingan, ${st.data.s.mahasiswa?.nama ?? ''}` } : null);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="detail" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   if (!st.data) return <ErrorNote error="Sesi bimbingan tidak ditemukan atau Anda tidak memiliki akses." />;
 
@@ -62,6 +63,7 @@ export function SessionDetail() {
       toast.show(okText, 'ok');
       setModal(null);
       st.reload();
+      onChanged?.();
     } catch (e) {
       toast.show((e as Error).message, 'bad');
     }
@@ -119,7 +121,26 @@ export function SessionDetail() {
 
   return (
     <>
-      <PageHeader title={s.topik} back={back} description={<SessionBadge s={s.status} />} actions={actions} />
+      <PageHeader
+        title={s.topik}
+        back={embedded ? undefined : back}
+        description={<SessionBadge s={s.status} />}
+        actions={
+          embedded ? (
+            <>
+              {actions}
+              <Link className="btn" to={`/bimbingan/${s.id}`}>
+                Buka penuh
+              </Link>
+              <button type="button" className="icon-btn" onClick={onClose} aria-label="Tutup detail" title="Tutup detail">
+                <IconClose size={17} />
+              </button>
+            </>
+          ) : (
+            actions
+          )
+        }
+      />
       <div className="grid-main">
         <div className="stack">
           {s.status === 'selesai' ? (

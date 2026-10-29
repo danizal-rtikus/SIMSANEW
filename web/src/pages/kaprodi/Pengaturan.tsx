@@ -12,7 +12,7 @@ export function PengaturanProdi() {
   const { active } = useAuth();
   const prodiId = active!.prodi_id!;
   const st = useAsync(async () => (await must(supabase.from('prodi').select('*').eq('id', prodiId).single())) as Prodi, [prodiId]);
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="detail" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const prodi = st.data!;
   return (
@@ -127,7 +127,7 @@ export function TemplateEditor({ prodiId, jenjang, canManage }: { prodiId: strin
   const [edits, setEdits] = useState<Record<string, Partial<TemplateRow>>>({});
   const [busy, setBusy] = useState(false);
 
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="block" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const all = st.data ?? [];
   const own = all.filter((t) => t.prodi_id === prodiId);

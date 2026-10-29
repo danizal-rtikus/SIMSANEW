@@ -16,7 +16,7 @@ export function AssessmentTab() {
   const dialog = useDialog();
   const toast = useToast();
   const st = useAsync(async () => (await must(supabase.from('assessment_items').select('*').order('jenis').order('urutan'))) as AssessmentItem[], []);
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const rows = (st.data ?? []).filter((r) => r.jenis === jenis);
   const total = rows.filter((r) => r.aktif).reduce((a, r) => a + Number(r.bobot), 0);
@@ -186,7 +186,7 @@ export function GradeTab() {
   const dialog = useDialog();
   const toast = useToast();
   const st = useAsync(async () => (await must(supabase.from('grade_scale').select('*').order('nilai_min', { ascending: false }))) as GradeRow[], []);
-  if (st.loading && !st.data) return <Loading />;
+  if (st.loading && !st.data) return <Loading variant="table" />;
   if (st.error) return <ErrorNote error={st.error} onRetry={st.reload} />;
   const rows = st.data ?? [];
 

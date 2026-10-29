@@ -5,7 +5,7 @@ import { ROLE_LABEL } from '../lib/labels';
 import { useProdi } from '../lib/master';
 import { Badge, Button, Field, PageHeader, Panel } from '../components/ui';
 import { useToast } from '../components/Toast';
-import { applyTheme, readTheme, type Theme } from '../lib/theme';
+import { applyDensity, applyTheme, readDensity, readTheme, type Density, type Theme } from '../lib/theme';
 
 export function Profil() {
   const { profile, roles, refresh, has } = useAuth();
@@ -15,6 +15,7 @@ export function Profil() {
   const [pw, setPw] = useState({ a: '', b: '' });
   const [busy, setBusy] = useState<'profil' | 'pw' | null>(null);
   const [theme, setTheme] = useState<Theme>(readTheme());
+  const [density, setDensity] = useState<Density>(readDensity());
 
   useEffect(() => {
     if (profile) setV({ nama: profile.nama, telepon: profile.telepon ?? '', bidang: (profile.bidang_keahlian ?? []).join(', ') });
@@ -106,6 +107,7 @@ export function Profil() {
             </div>
           </Panel>
           <Panel title="Tampilan">
+            <div className="stack-sm">
             <Field label="Tema">
               <select
                 value={theme}
@@ -119,6 +121,20 @@ export function Profil() {
                 <option value="dark">Gelap</option>
               </select>
             </Field>
+            <Field label="Kerapatan" hint="Rapat menampilkan lebih banyak baris tabel dan menu dalam satu layar.">
+              <select
+                value={density}
+                onChange={(e) => {
+                  const d = e.target.value as Density;
+                  setDensity(d);
+                  applyDensity(d);
+                }}
+              >
+                <option value="nyaman">Nyaman</option>
+                <option value="rapat">Rapat</option>
+              </select>
+            </Field>
+            </div>
           </Panel>
         </div>
       </div>
