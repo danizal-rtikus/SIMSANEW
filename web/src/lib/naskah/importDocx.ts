@@ -169,6 +169,8 @@ interface ParaItem {
   text: string;
   allBold: boolean;
   pageBreakBefore: boolean;
+  /** Inden kiri paragraf (twip), untuk mengenali paragraf lanjutan butir daftar. */
+  indent: number;
 }
 type Item = ParaItem | { kind: 'table'; node: PmNode } | { kind: 'image'; node: PmNode };
 
@@ -364,6 +366,7 @@ class Converter {
       text,
       allBold: out.chars > 0 && out.boldChars / out.chars > 0.8,
       pageBreakBefore: out.pageBreak || onOff(kid(pPr, 'pageBreakBefore')),
+      indent: Number(wAttr(kid(pPr, 'ind'), 'left') ?? wAttr(kid(pPr, 'ind'), 'start') ?? 0) || 0,
     };
   }
 
@@ -458,6 +461,46 @@ const BAB_RE = /^BAB\s+([IVXLC]+|\d+)\b\s*[:.\-–]?\s*(.*)$/i;
 const SUB_RE = /^(\d+)\.(\d+)(?:\.(\d+))?\.?\s+(\S.{0,118})$/;
 const CAP_RE = /^(Gambar|Tabel|Table|Figure)\s+\d+(?:[.\-]\d+)*\.?\s*[:.\-–]?\s*/i;
 
+
+function romanToInt(s: string): number {
+  if (/^\d+$/.test(s)) return Number(s);
+  const v: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100 };
+  let n = 0;
+  const u = s.toUpperCase();
+  for (let k = 0; k < u.length; k++) {
+    const a = v[u[k]] ?? 0;
+    const b = v[u[k + 1]] ?? 0;
+    n += a < b ? -a : a;
+  }
+  return n;
+}
+
+/**
+ * Apakah "BAB n" pada indeks i merupakan butir uraian (mis. Sistematika Penulisan), bukan judul bab?
+ * - Nomornya tidak melanjutkan urutan bab yang sudah ada (mis. "BAB I" muncul lagi di dalam Bab I), atau
+ * - "BAB" berikutnya muncul dalam beberapa paragraf tanpa subbab di antaranya.
+ */
+function looksLikeOutline(items: Item[], i: number, m: RegExpMatchArray, babSejauhIni: number): boolean {
+  const p = items[i] as ParaItem;
+  if (p.headingFromNumbering) return false;
+  // Butir daftar bernomor (a., b., 1., 2.) seperti di Sistematika Penulisan bukan judul bab.
+  if (p.list) return true;
+  const n = romanToInt(m[1]);
+  if (n !== babSejauhIni + 1) return true;
+  let paras = 0;
+  for (let j = i + 1; j < items.length && paras < 8; j++) {
+    const it = items[j];
+    if (it.kind !== 'para') return false;
+    if (!it.text) continue;
+    if (it.heading >= 1 && it.heading !== 1) return false;
+    if (SUB_RE.test(it.text) && it.text.length <= 120 && !/[.;:,]$/.test(it.text)) return false;
+    if (BAB_RE.test(it.text) && it.heading !== 1) return true;
+    if (it.heading === 1) return false;
+    paras++;
+  }
+  return false;
+}
+
 function postProcess(items: Item[], conv: Converter, opts: ImportOptions): { content: PmNode[]; stats: ImportResult['stats'] } {
   const content: PmNode[] = [];
   const stats = { bab: 0, subbab: 0, paragraf: 0, tabel: 0, gambar: 0, daftar: 0 };
@@ -498,7 +541,10 @@ function postProcess(items: Item[], conv: Converter, opts: ImportOptions): { con
     }
 
     // ---- Judul bab ----
-    const babMatch = p.text.match(BAB_RE);
+    let babMatch = p.text.match(BAB_RE);
+    // "BAB n" yang hanya berupa teks biasa (tanpa gaya Heading 1) bisa saja bagian dari
+    // Sistematika Penulisan ("BAB II TINJAUAN PUSTAKA: Bab ini membahas ..."). Itu bukan judul bab.
+    if (babMatch && p.heading !== 1 && (seenBab || p.list) && looksLikeOutline(items, i, babMatch, stats.bab)) babMatch = null;
     if (p.heading === 1 || (babMatch && p.text.length <= 100)) {
       closeLists();
       let judul = '';
@@ -580,6 +626,27 @@ function postProcess(items: Item[], conv: Converter, opts: ImportOptions): { con
         listStack.push({ node, ilvl: p.list.ilvl, numId: p.list.numId });
       }
       continue;
+    }
+
+    // ---- Paragraf lanjutan butir daftar ----
+    // Paragraf menjorok di bawah butir daftar (mis. uraian tiap bab di Sistematika Penulisan)
+    // tetap menjadi bagian butir itu, sehingga penomoran a, b, c tidak terputus.
+    if (listStack.length && !p.heading && !p.caption) {
+      let nextList: ParaItem['list'] = null;
+      for (let j = i + 1; j < items.length; j++) {
+        const q = items[j];
+        if (q.kind !== 'para') break;
+        if (!q.text) continue;
+        nextList = q.list;
+        break;
+      }
+      const top = listStack[listStack.length - 1];
+      if (p.indent > 0 || (nextList && nextList.numId === listStack[0].numId)) {
+        const li = top.node.content![top.node.content!.length - 1];
+        li.content!.push({ type: 'paragraph', content: trimInline(p.inline) });
+        if (seenBab || !opts.abaikanAwal) stats.paragraf++;
+        continue;
+      }
     }
 
     // ---- Paragraf biasa ----
