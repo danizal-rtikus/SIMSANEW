@@ -9,6 +9,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  LabelList,
 } from 'recharts';
 import type {
   AnalyticsSummary,
@@ -35,6 +36,39 @@ interface CloudflareDetailedAnalyticsProps {
   selectedProdi: string;
   onSelectProdi: (prodiId: string) => void;
   onBackToOverview: () => void;
+}
+
+/**
+ * Komponen Legenda Terpadu (Persis Cloudflare):
+ * Menggunakan vektor SVG murni sehingga dijamin selalu tercetak berwarna
+ * meskipun opsi "Background graphics" pada browser dimatikan oleh pengguna.
+ */
+function LegendBadge({
+  color,
+  label,
+  value,
+  type = 'circle',
+}: {
+  color: string;
+  label: string;
+  value?: string | number;
+  type?: 'circle' | 'square' | 'line';
+}) {
+  return (
+    <span className="cf-legend-badge-item">
+      <svg width="10" height="10" viewBox="0 0 10 10" style={{ flexShrink: 0, marginRight: 4 }}>
+        {type === 'circle' && <circle cx="5" cy="5" r="4.5" fill={color} stroke={color} strokeWidth="1" />}
+        {type === 'square' && <rect x="0.5" y="0.5" width="9" height="9" rx="2" fill={color} stroke={color} strokeWidth="1" />}
+        {type === 'line' && <line x1="0" y1="5" x2="10" y2="5" stroke={color} strokeWidth="2.5" strokeDasharray="3 2" />}
+      </svg>
+      <span className="cf-legend-badge-label">{label}</span>
+      {value !== undefined && (
+        <strong className="cf-legend-badge-val" style={{ color: color === '#94a3b8' ? 'inherit' : color }}>
+          {value}
+        </strong>
+      )}
+    </span>
+  );
 }
 
 export function CloudflareDetailedAnalytics({
@@ -71,6 +105,26 @@ export function CloudflareDetailedAnalytics({
   const selectedProdiObj = prodiList.find((p) => p.id === selectedProdi);
   const prodiLabel = selectedProdi === 'all' ? 'Semua Program Studi' : selectedProdiObj ? `${selectedProdiObj.nama} (${selectedProdiObj.kode})` : selectedProdi;
 
+  // Agregasi Data untuk Legenda Informatif
+  const totalBimbinganSelesai = weeklyTrend.reduce((s, p) => s + (p.bimbingan || 0), 0);
+  const avgBimbinganPekan = Math.round(totalBimbinganSelesai / (weeklyTrend.length || 1));
+
+  const totalPengajuan = titleVsGraduation.reduce((s, p) => s + (p.pengajuan || 0), 0);
+  const totalLulus = titleVsGraduation.reduce((s, p) => s + (p.lulus || 0), 0);
+
+  const totalBab1to3 = stageDistribution.reduce((s, p) => s + (p.bab1to3 || 0), 0);
+  const totalSempro = stageDistribution.reduce((s, p) => s + (p.sempro || 0), 0);
+  const totalBab4to5 = stageDistribution.reduce((s, p) => s + (p.bab4to5 || 0), 0);
+  const totalSidang = stageDistribution.reduce((s, p) => s + (p.sidang || 0), 0);
+
+  const totalHijau = ewsCohorts.reduce((s, p) => s + (p.hijau || 0), 0);
+  const totalKuning = ewsCohorts.reduce((s, p) => s + (p.kuning || 0), 0);
+  const totalMerah = ewsCohorts.reduce((s, p) => s + (p.merah || 0), 0);
+  const totalMhsEws = (totalHijau + totalKuning + totalMerah) || 1;
+  const pctHijau = Math.round((totalHijau / totalMhsEws) * 100);
+  const pctKuning = Math.round((totalKuning / totalMhsEws) * 100);
+  const pctMerah = Math.round((totalMerah / totalMhsEws) * 100);
+
   // Mini Sparkline component untuk 5 KPI Cards di Baris 1
   const renderKpiSparkline = (data: SparklinePoint[], color: string) => (
     <div style={{ width: '100%', height: 38, marginTop: 8 }}>
@@ -99,15 +153,17 @@ export function CloudflareDetailedAnalytics({
   );
 
   return (
-    <div className="cf-container">
-      {/* Header Resmi Khusus Mode Cetak (window.print - persis Cloudflare) */}
+    <div className="cf-container cf-printable-report" id="cf-analytics-report">
+      {/* ===================================================================
+          KOP RESMI DOKUMEN CETAK (Halaman 1)
+          =================================================================== */}
       <div className="cf-print-header">
         <div className="cf-print-header-content">
           <div>
             <h1 className="cf-print-main-title">Analytics</h1>
-            <p className="cf-print-sub-title">Data aktivitas studi akhir &bull; STIKOM Yos Sudarso</p>
+            <p className="cf-print-sub-title">Laporan Analitik Akademik Studi Akhir &bull; STIKOM Yos Sudarso</p>
             <p className="cf-print-meta-line">
-              Semester 2026/2027 Ganjil &bull; Cakupan: {prodiLabel} &bull; Dicetak: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} WIB
+              Semester 2026/2027 Ganjil &bull; Cakupan: {prodiLabel} &bull; Waktu Cetak: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} WIB &bull; Hal. 1 dari 2
             </p>
           </div>
           <div className="cf-print-logo-box">
@@ -117,7 +173,7 @@ export function CloudflareDetailedAnalytics({
         </div>
       </div>
 
-      {/* Top Breadcrumb & Navigation */}
+      {/* Top Breadcrumb & Navigation (Hanya tampil di Web) */}
       <div className="cf-detail-topbar">
         <button className="cf-back-btn" onClick={onBackToOverview}>
           &larr; Kembali ke Ringkasan
@@ -229,7 +285,7 @@ export function CloudflareDetailedAnalytics({
       </div>
 
       {/* ===================================================================
-          ROW 1: 5 KPI SUMMARY CARDS DENGAN SPARKLINE (Persis Gambar 2 Baris 1)
+          ROW 1: 5 KPI SUMMARY CARDS (Persis Cloudflare Layout)
           =================================================================== */}
       <div className="cf-kpi-grid">
         {/* Card 1: Total Mahasiswa Aktif */}
@@ -284,7 +340,7 @@ export function CloudflareDetailedAnalytics({
       </div>
 
       {/* ===================================================================
-          ROW 2: DUA GRAFIK AREA TIME SERIES (Persis Gambar 2 Baris 2)
+          ROW 2: DUA GRAFIK TREN AREA (Halaman 1)
           =================================================================== */}
       {(activeTab === 'all' || activeTab === 'bimbingan') && (
         <div className="cf-charts-2col">
@@ -293,13 +349,10 @@ export function CloudflareDetailedAnalytics({
             <div className="cf-panel-header">
               <div className="cf-panel-title-block">
                 <div className="cf-panel-title">Sesi bimbingan per pekan</div>
-                <div className="cf-panel-legend">
-                  <span className="cf-legend-dot" style={{ background: '#0b5bd3' }} />
-                  <span className="cf-legend-text">
-                    Realisasi Sesi (Total: {summary.totalBimbinganSelesai})
-                  </span>
-                  <span className="cf-legend-dot" style={{ background: '#94a3b8', marginLeft: 14 }} />
-                  <span className="cf-legend-text">Target Institusi (20 sesi/pekan)</span>
+                <div className="cf-panel-legend wrap">
+                  <LegendBadge color="#0b5bd3" label="Realisasi Sesi" value={`${totalBimbinganSelesai} sesi`} />
+                  <LegendBadge color="#94a3b8" label="Target Institusi" value="20/pekan" type="line" />
+                  <LegendBadge color="#0891b2" label="Rata-rata Berjalan" value={`${avgBimbinganPekan} sesi/pekan`} />
                 </div>
               </div>
               <div className="cf-panel-group">Pekan 1 – 16</div>
@@ -364,11 +417,9 @@ export function CloudflareDetailedAnalytics({
             <div className="cf-panel-header">
               <div className="cf-panel-title-block">
                 <div className="cf-panel-title">Pengajuan judul vs kelulusan</div>
-                <div className="cf-panel-legend">
-                  <span className="cf-legend-dot" style={{ background: '#0891b2' }} />
-                  <span className="cf-legend-text">Pendaftaran Judul Baru</span>
-                  <span className="cf-legend-dot" style={{ background: '#157a5c', marginLeft: 14 }} />
-                  <span className="cf-legend-text">Lulus Yudisium</span>
+                <div className="cf-panel-legend wrap">
+                  <LegendBadge color="#0891b2" label="Pendaftaran Judul" value={`${totalPengajuan} proposal`} />
+                  <LegendBadge color="#157a5c" label="Lulus Yudisium" value={`${totalLulus} mhs (${summary.rasioTepatWaktu}% tepat waktu)`} />
                 </div>
               </div>
               <div className="cf-panel-group">Semester Berjalan</div>
@@ -435,7 +486,26 @@ export function CloudflareDetailedAnalytics({
       )}
 
       {/* ===================================================================
-          ROW 3: DUA GRAFIK STACKED BAR (Persis Gambar 2 Baris 3)
+          PAGE BREAK KHUSUS DOKUMEN CETAK (Halaman 2 Terstruktur Rapi)
+          =================================================================== */}
+      <div className="cf-print-page-break" />
+
+      {/* Kop Resmi Khusus Halaman 2 Cetak PDF */}
+      <div className="cf-print-header cf-print-header-page2">
+        <div className="cf-print-header-content">
+          <div>
+            <h2 className="cf-print-main-title" style={{ fontSize: 18 }}>Sebaran Tahap Studi & Early Warning System (EWS)</h2>
+            <p className="cf-print-sub-title">Laporan Analitik Akademik SIMSA &bull; STIKOM Yos Sudarso &bull; Lembar 2 dari 2</p>
+          </div>
+          <div className="cf-print-logo-box">
+            <span className="cf-print-logo-mark">S</span>
+            <span className="cf-print-logo-text">HALAMAN 2</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ===================================================================
+          ROW 3: DUA GRAFIK STACKED BAR DENGAN DATA LABELS & LEGENDA INFORMATIF
           =================================================================== */}
       {(activeTab === 'all' || activeTab === 'tahapan' || activeTab === 'kelulusan') && (
         <div className="cf-charts-2col">
@@ -445,20 +515,17 @@ export function CloudflareDetailedAnalytics({
               <div className="cf-panel-title-block">
                 <div className="cf-panel-title">Sebaran tahapan per program studi</div>
                 <div className="cf-panel-legend wrap">
-                  <span className="cf-legend-dot" style={{ background: '#0b5bd3' }} />
-                  <span className="cf-legend-text">Bab 1–3</span>
-                  <span className="cf-legend-dot" style={{ background: '#e2b04f', marginLeft: 10 }} />
-                  <span className="cf-legend-text">Sempro / Revisi</span>
-                  <span className="cf-legend-dot" style={{ background: '#8b5cf6', marginLeft: 10 }} />
-                  <span className="cf-legend-text">Bab 4–5</span>
-                  <span className="cf-legend-dot" style={{ background: '#157a5c', marginLeft: 10 }} />
-                  <span className="cf-legend-text">Pendadaran / Lulus</span>
+                  <LegendBadge color="#0b5bd3" label="Bab 1–3 (Proposal)" value={`${totalBab1to3} mhs`} type="square" />
+                  <LegendBadge color="#e2b04f" label="Sempro / Revisi" value={`${totalSempro} mhs`} type="square" />
+                  <LegendBadge color="#8b5cf6" label="Bab 4–5 (Bimbingan Hasil)" value={`${totalBab4to5} mhs`} type="square" />
+                  <LegendBadge color="#157a5c" label="Pendadaran / Lulus" value={`${totalSidang} mhs`} type="square" />
                 </div>
               </div>
+              <div className="cf-panel-group">Berdasarkan Prodi</div>
             </div>
             <div className="cf-chart-body">
               <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={stageDistribution} margin={{ top: 12, right: 18, left: -10, bottom: 0 }}>
+                <BarChart data={stageDistribution} margin={{ top: 16, right: 18, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
                   <XAxis dataKey="prodi" tick={{ fontSize: 11, fill: 'var(--ink-3)' }} />
                   <YAxis tick={{ fontSize: 11, fill: 'var(--ink-3)' }} />
@@ -492,10 +559,18 @@ export function CloudflareDetailedAnalytics({
                       );
                     }}
                   />
-                  <Bar dataKey="bab1to3" stackId="tahap" fill="#0b5bd3" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="sempro" stackId="tahap" fill="#e2b04f" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="bab4to5" stackId="tahap" fill="#8b5cf6" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="sidang" stackId="tahap" fill="#157a5c" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="bab1to3" stackId="tahap" fill="#0b5bd3" radius={[0, 0, 0, 0]}>
+                    <LabelList dataKey="bab1to3" position="center" fill="#ffffff" fontSize={11} fontWeight={600} formatter={(v: number) => (v >= 3 ? v : '')} />
+                  </Bar>
+                  <Bar dataKey="sempro" stackId="tahap" fill="#e2b04f" radius={[0, 0, 0, 0]}>
+                    <LabelList dataKey="sempro" position="center" fill="#ffffff" fontSize={11} fontWeight={600} formatter={(v: number) => (v >= 3 ? v : '')} />
+                  </Bar>
+                  <Bar dataKey="bab4to5" stackId="tahap" fill="#8b5cf6" radius={[0, 0, 0, 0]}>
+                    <LabelList dataKey="bab4to5" position="center" fill="#ffffff" fontSize={11} fontWeight={600} formatter={(v: number) => (v >= 3 ? v : '')} />
+                  </Bar>
+                  <Bar dataKey="sidang" stackId="tahap" fill="#157a5c" radius={[3, 3, 0, 0]}>
+                    <LabelList dataKey="sidang" position="center" fill="#ffffff" fontSize={11} fontWeight={600} formatter={(v: number) => (v >= 3 ? v : '')} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -506,19 +581,17 @@ export function CloudflareDetailedAnalytics({
             <div className="cf-panel-header">
               <div className="cf-panel-title-block">
                 <div className="cf-panel-title">Indikator risiko EWS per angkatan</div>
-                <div className="cf-panel-legend">
-                  <span className="cf-legend-dot" style={{ background: '#157a5c' }} />
-                  <span className="cf-legend-text">Hijau (Aman)</span>
-                  <span className="cf-legend-dot" style={{ background: '#e2b04f', marginLeft: 12 }} />
-                  <span className="cf-legend-text">Kuning (Waspada)</span>
-                  <span className="cf-legend-dot" style={{ background: '#c0261d', marginLeft: 12 }} />
-                  <span className="cf-legend-text">Merah (Kritis)</span>
+                <div className="cf-panel-legend wrap">
+                  <LegendBadge color="#157a5c" label="Hijau (Aman & Lancar)" value={`${totalHijau} mhs (${pctHijau}%)`} />
+                  <LegendBadge color="#e2b04f" label="Kuning (Waspada)" value={`${totalKuning} mhs (${pctKuning}%)`} />
+                  <LegendBadge color="#c0261d" label="Merah (Kritis)" value={`${totalMerah} mhs (${pctMerah}%)`} />
                 </div>
               </div>
+              <div className="cf-panel-group">Berdasarkan Angkatan</div>
             </div>
             <div className="cf-chart-body">
               <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={ewsCohorts} margin={{ top: 12, right: 18, left: -10, bottom: 0 }}>
+                <BarChart data={ewsCohorts} margin={{ top: 16, right: 18, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line)" />
                   <XAxis dataKey="angkatan" tick={{ fontSize: 11, fill: 'var(--ink-3)' }} />
                   <YAxis tick={{ fontSize: 11, fill: 'var(--ink-3)' }} />
@@ -530,32 +603,62 @@ export function CloudflareDetailedAnalytics({
                           <div className="cf-tt-title">Angkatan {label}</div>
                           <div className="cf-tt-row">
                             <span className="cf-tt-dot" style={{ background: '#157a5c' }} />
-                            <span className="cf-tt-label">Hijau (On Schedule):</span>
-                            <span className="cf-tt-val">{payload.find((p) => p.dataKey === 'hijau')?.value ?? 0}</span>
+                            <span className="cf-tt-label">Hijau (Aman):</span>
+                            <span className="cf-tt-val">{payload.find((p) => p.dataKey === 'hijau')?.value ?? 0} mhs</span>
                           </div>
                           <div className="cf-tt-row">
                             <span className="cf-tt-dot" style={{ background: '#e2b04f' }} />
-                            <span className="cf-tt-label">Kuning (Mendekati Tenggat):</span>
-                            <span className="cf-tt-val">{payload.find((p) => p.dataKey === 'kuning')?.value ?? 0}</span>
+                            <span className="cf-tt-label">Kuning (Waspada):</span>
+                            <span className="cf-tt-val">{payload.find((p) => p.dataKey === 'kuning')?.value ?? 0} mhs</span>
                           </div>
                           <div className="cf-tt-row">
                             <span className="cf-tt-dot" style={{ background: '#c0261d' }} />
-                            <span className="cf-tt-label">Merah (Perlu Tindakan):</span>
-                            <span className="cf-tt-val">{payload.find((p) => p.dataKey === 'merah')?.value ?? 0}</span>
+                            <span className="cf-tt-label">Merah (Kritis):</span>
+                            <span className="cf-tt-val">{payload.find((p) => p.dataKey === 'merah')?.value ?? 0} mhs</span>
                           </div>
                         </div>
                       );
                     }}
                   />
-                  <Bar dataKey="hijau" stackId="ews" fill="#157a5c" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="kuning" stackId="ews" fill="#e2b04f" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="merah" stackId="ews" fill="#c0261d" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="hijau" stackId="ews" fill="#157a5c" radius={[0, 0, 0, 0]}>
+                    <LabelList dataKey="hijau" position="center" fill="#ffffff" fontSize={11} fontWeight={600} formatter={(v: number) => (v >= 3 ? v : '')} />
+                  </Bar>
+                  <Bar dataKey="kuning" stackId="ews" fill="#e2b04f" radius={[0, 0, 0, 0]}>
+                    <LabelList dataKey="kuning" position="center" fill="#ffffff" fontSize={11} fontWeight={600} formatter={(v: number) => (v >= 2 ? v : '')} />
+                  </Bar>
+                  <Bar dataKey="merah" stackId="ews" fill="#c0261d" radius={[3, 3, 0, 0]}>
+                    <LabelList dataKey="merah" position="top" fill="#c0261d" fontSize={11} fontWeight={700} formatter={(v: number) => (v > 0 ? `${v} Kritis` : '')} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
         </div>
       )}
+
+      {/* ===================================================================
+          RINGKASAN EKSEKUTIF & REKOMENDASI AKADEMIK (Tampil di Web & Cetak)
+          =================================================================== */}
+      <div className="cf-takeaway-card">
+        <div className="cf-takeaway-header">
+          <span className="cf-takeaway-badge">Catatan Rekomendasi Eksekutif</span>
+          <span className="cf-takeaway-period">Semester 2026/2027 Ganjil &bull; Status: Kondusif</span>
+        </div>
+        <div className="cf-takeaway-grid">
+          <div className="cf-takeaway-item">
+            <div className="cf-takeaway-item-title">Status Kesehatan Progres Studi</div>
+            <div className="cf-takeaway-item-desc">
+              Sebanyak <strong>{pctHijau}% mahasiswa ({totalHijau} mhs)</strong> berada di zona hijau dengan laju bimbingan aktif sesuai jadwal pedoman. Sebanyak <strong>{pctKuning}% ({totalKuning} mhs)</strong> dalam zona kuning (perhatian), dan <strong>{pctMerah}% ({totalMerah} mhs)</strong> kritis yang memerlukan akselerasi bimbingan intensif oleh Ka. Prodi.
+            </div>
+          </div>
+          <div className="cf-takeaway-item">
+            <div className="cf-takeaway-item-title">Efektivitas Bimbingan & Kelulusan Tepat Waktu</div>
+            <div className="cf-takeaway-item-desc">
+              Rasio kelulusan tepat waktu mencapai <strong>{summary.rasioTepatWaktu}%</strong> (melampaui ambang batas standar akreditasi LAM-INFOKOM minimal 75%). Sebanyak <strong>{totalBimbinganSelesai} sesi bimbingan</strong> telah tercatat dan tervalidasi dosen pembimbing di seluruh program studi.
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
