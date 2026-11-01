@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { useAsync } from '../lib/useAsync';
 import { must, supabase } from '../lib/supabase';
 import { api } from '../lib/api';
+import { ExecutiveAnalytics } from '../components/analytics/ExecutiveAnalytics';
 import {
   SESSION_SELECT,
   getMilestones,
@@ -617,17 +619,10 @@ function PimpinanHome() {
           },
         ]}
       />
-      <h2 className="section-title">Ringkasan</h2>
+      <h2 className="section-title">Analitik Eksekutif</h2>
       <div className="stack">
-        <Facts
-          items={[
-            { label: 'Mahasiswa aktif', value: aktif.length },
-            { label: 'Lulus', value: rows.filter((r) => r.status === 'lulus').length },
-            { label: 'Rata-rata progres', value: `${aktif.length ? (aktif.reduce((a, r) => a + Number(r.persen), 0) / aktif.length).toFixed(0) : 0}%` },
-            { label: 'Kritis', value: aktif.filter((r) => r.risiko === 'merah').length, note: `${aktif.filter((r) => r.risiko === 'kuning').length} waspada` },
-          ]}
-        />
-        <Panel title="Per program studi" flush>
+        <ExecutiveAnalytics initialView="overview" />
+        <Panel title="Rincian per program studi" flush>
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -682,6 +677,7 @@ function PimpinanHome() {
    ===================================================================== */
 function AdminHome() {
   const { profile } = useAuth();
+  const [adminTab, setAdminTab] = useState<'analytics' | 'operational'>('analytics');
   const st = useAsync(async () => {
     const [roles, prodi, year, logs] = await Promise.all([
       must(supabase.from('user_roles').select('role')),
@@ -709,80 +705,108 @@ function AdminHome() {
   const d = st.data!;
   return (
     <>
-      <HomeHero
-        title={greeting(profile?.nama)}
-        lead="Pengelolaan akun, master data, dan konfigurasi SIMSA."
-        columns={[
-          {
-            title: 'Pintasan',
-            empty: '',
-            items: [
-              { label: 'Tambah atau impor pengguna', to: '/admin/pengguna' },
-              { label: 'Program studi', to: '/admin/master' },
-              { label: 'Tahun akademik', to: '/admin/master?tab=tahun' },
-              { label: 'Template milestone', to: '/admin/master?tab=template' },
-              { label: 'Kelola pedoman', to: '/pedoman/kelola' },
-            ],
-          },
-          {
-            title: 'Aktivitas terbaru',
-            to: '/admin/audit',
-            empty: 'Belum ada aktivitas.',
-            items: d.logs.slice(0, 5).map((l) => ({ label: l.aksi.replace(/_/g, ' '), sub: fmtDateTime(l.created_at), to: '/admin/audit' })),
-          },
-        ]}
-      />
-      <h2 className="section-title">Ringkasan</h2>
-      <div className="stack">
-        <Facts
-          items={[
-            { label: 'Mahasiswa', value: d.count.mahasiswa ?? 0 },
-            { label: 'Dosen', value: d.count.dosen ?? 0 },
-            { label: 'Program studi', value: d.prodi },
-            { label: 'Tahun akademik aktif', value: <span style={{ fontSize: 17 }}>{d.year ?? 'Belum diatur'}</span> },
-            { label: 'Server Node.js', value: <span style={{ fontSize: 17 }}>{d.health}</span> },
-          ]}
-        />
-        {d.healthProblems.length > 0 && (
-          <div className="note bad">
-            <div className="strong">Server SIMSA belum dapat mengelola akun</div>
-            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
-              {d.healthProblems.map((p) => (
-                <li key={p}>{p}</li>
-              ))}
-            </ul>
-            <div style={{ marginTop: 6 }}>Perbaiki server/.env, lalu hentikan dan jalankan ulang "npm run dev".</div>
-          </div>
-        )}
-        {!d.year && <div className="note warn">Belum ada tahun akademik aktif. Atur di Master data agar studi akhir baru tercatat pada tahun akademik yang benar.</div>}
-        <div className="grid-2">
-          <Panel title="Peran pengguna" flush>
-            <table className="table">
-              <tbody>
-                {(['admin', 'pimpinan', 'kaprodi', 'baak', 'dosen', 'mahasiswa'] as const).map((r) => (
-                  <tr key={r}>
-                    <td>{ROLE_LABEL[r]}</td>
-                    <td className="num">{d.count[r] ?? 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Panel>
-          <Panel title="Aktivitas terbaru" actions={<Link to="/admin/audit">Audit log</Link>} flush>
-            <ul className="list">
-              {d.logs.map((l) => (
-                <li key={l.id} className="row-between small">
-                  <span>
-                    {l.aksi.replace(/_/g, ' ')} <span className="muted">pada {l.entitas}</span>
-                  </span>
-                  <span className="muted">{fmtDateTime(l.created_at)}</span>
-                </li>
-              ))}
-              {d.logs.length === 0 && <li className="muted small">Belum ada aktivitas.</li>}
-            </ul>
-          </Panel>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
+        <div style={{ display: 'inline-flex', border: '1px solid var(--line)', borderRadius: 'var(--r)', background: 'var(--surface)', padding: 2 }}>
+          <button
+            className={`cf-time-pill ${adminTab === 'analytics' ? 'active' : ''}`}
+            onClick={() => setAdminTab('analytics')}
+            style={{ padding: '6px 16px', fontWeight: 600 }}
+          >
+            Analitik Akademik
+          </button>
+          <button
+            className={`cf-time-pill ${adminTab === 'operational' ? 'active' : ''}`}
+            onClick={() => setAdminTab('operational')}
+            style={{ padding: '6px 16px', fontWeight: 600 }}
+          >
+            Operasional & Pengguna
+          </button>
+        </div>
+        <div className="small muted">
+          Tahun Akademik: <strong style={{ color: 'var(--ink)' }}>{d.year ?? '2026/2027 Ganjil'}</strong>
         </div>
       </div>
+
+      {adminTab === 'analytics' ? (
+        <ExecutiveAnalytics initialView="overview" />
+      ) : (
+        <>
+          <HomeHero
+            title={greeting(profile?.nama)}
+            lead="Pengelolaan akun, master data, dan konfigurasi SIMSA."
+            columns={[
+              {
+                title: 'Pintasan',
+                empty: '',
+                items: [
+                  { label: 'Tambah atau impor pengguna', to: '/admin/pengguna' },
+                  { label: 'Program studi', to: '/admin/master' },
+                  { label: 'Tahun akademik', to: '/admin/master?tab=tahun' },
+                  { label: 'Template milestone', to: '/admin/master?tab=template' },
+                  { label: 'Kelola pedoman', to: '/pedoman/kelola' },
+                ],
+              },
+              {
+                title: 'Aktivitas terbaru',
+                to: '/admin/audit',
+                empty: 'Belum ada aktivitas.',
+                items: d.logs.slice(0, 5).map((l) => ({ label: l.aksi.replace(/_/g, ' '), sub: fmtDateTime(l.created_at), to: '/admin/audit' })),
+              },
+            ]}
+          />
+          <h2 className="section-title">Ringkasan</h2>
+          <div className="stack">
+            <Facts
+              items={[
+                { label: 'Mahasiswa', value: d.count.mahasiswa ?? 0 },
+                { label: 'Dosen', value: d.count.dosen ?? 0 },
+                { label: 'Program studi', value: d.prodi },
+                { label: 'Tahun akademik aktif', value: <span style={{ fontSize: 17 }}>{d.year ?? 'Belum diatur'}</span> },
+                { label: 'Server Node.js', value: <span style={{ fontSize: 17 }}>{d.health}</span> },
+              ]}
+            />
+            {d.healthProblems.length > 0 && (
+              <div className="note bad">
+                <div className="strong">Server SIMSA belum dapat mengelola akun</div>
+                <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                  {d.healthProblems.map((p) => (
+                    <li key={p}>{p}</li>
+                  ))}
+                </ul>
+                <div style={{ marginTop: 6 }}>Perbaiki server/.env, lalu hentikan dan jalankan ulang "npm run dev".</div>
+              </div>
+            )}
+            {!d.year && <div className="note warn">Belum ada tahun akademik aktif. Atur di Master data agar studi akhir baru tercatat pada tahun akademik yang benar.</div>}
+            <div className="grid-2">
+              <Panel title="Peran pengguna" flush>
+                <table className="table">
+                  <tbody>
+                    {(['admin', 'pimpinan', 'kaprodi', 'baak', 'dosen', 'mahasiswa'] as const).map((r) => (
+                      <tr key={r}>
+                        <td>{ROLE_LABEL[r]}</td>
+                        <td className="num">{d.count[r] ?? 0}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Panel>
+              <Panel title="Aktivitas terbaru" actions={<Link to="/admin/audit">Audit log</Link>} flush>
+                <ul className="list">
+                  {d.logs.map((l) => (
+                    <li key={l.id} className="row-between small">
+                      <span>
+                        {l.aksi.replace(/_/g, ' ')} <span className="muted">pada {l.entitas}</span>
+                      </span>
+                      <span className="muted">{fmtDateTime(l.created_at)}</span>
+                    </li>
+                  ))}
+                  {d.logs.length === 0 && <li className="muted small">Belum ada aktivitas.</li>}
+                </ul>
+              </Panel>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

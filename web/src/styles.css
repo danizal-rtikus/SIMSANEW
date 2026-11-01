@@ -1410,3 +1410,103 @@ html[data-density='rapat'] .btn { min-height: 32px; padding-top: 5px; padding-bo
   .table.has-check th:first-child, .table.has-check td:first-child { position: static; min-width: 0; width: 36px; box-shadow: none; }
 }
 @media (max-width: 640px) { .tb-crumb > .muted, .tb-crumb > svg { display: none; } }
+
+/* =====================================================================
+   Cloudflare-Themed Executive Analytics
+   ===================================================================== */
+.cf-executive-wrapper { display: flex; flex-direction: column; gap: 20px; }
+.cf-container { display: flex; flex-direction: column; gap: 18px; }
+
+/* Overview Header (Gambar 1) */
+.cf-overview-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 4px; }
+.cf-title-block .cf-sub { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-3); margin-bottom: 2px; }
+.cf-title-block .cf-title { font-size: 20px; font-weight: 700; color: var(--ink); margin: 0 0 4px; letter-spacing: -0.2px; }
+.cf-title-block .cf-desc { font-size: 13.5px; color: var(--ink-2); margin: 0; }
+.cf-header-actions { display: flex; align-items: center; gap: 12px; }
+.cf-time-pills { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); overflow: hidden; }
+.cf-time-pill { border: none; background: transparent; padding: 6px 14px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); cursor: pointer; transition: all .15s ease; }
+.cf-time-pill:hover { background: var(--surface-2); color: var(--ink); }
+.cf-time-pill.active { background: var(--surface-2); color: var(--almamater); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line-strong); }
+
+/* Overview Grid Layout: 4 Stacked Cards + Right Action Rail */
+.cf-overview-grid { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: flex-start; }
+@media (max-width: 960px) { .cf-overview-grid { grid-template-columns: 1fr; } }
+
+.cf-cards-stack { display: flex; flex-direction: column; gap: 14px; }
+.cf-overview-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); display: grid; grid-template-columns: 260px 1fr; padding: 16px 20px; align-items: center; gap: 16px; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; cursor: pointer; }
+.cf-overview-card:hover { border-color: var(--almamater); box-shadow: 0 4px 18px rgba(11, 91, 211, 0.08); transform: translateY(-1px); }
+@media (max-width: 640px) { .cf-overview-card { grid-template-columns: 1fr; gap: 12px; } }
+
+.cf-card-left { display: flex; flex-direction: column; gap: 3px; }
+.cf-metric-label { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.cf-metric-value { font-size: 30px; font-weight: 700; color: var(--ink); line-height: 1.1; letter-spacing: -0.5px; margin: 2px 0; }
+.cf-metric-sub { font-size: 12px; color: var(--ink-3); }
+.cf-metric-link { font-size: 11.5px; font-weight: 600; color: var(--almamater); margin-top: 6px; display: inline-flex; align-items: center; }
+.cf-overview-card:hover .cf-metric-link { text-decoration: underline; }
+
+.cf-sidebar-rail { display: flex; flex-direction: column; gap: 14px; }
+.cf-rail-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 18px; }
+.cf-rail-title { font-size: 13.5px; font-weight: 650; color: var(--ink); margin-bottom: 12px; }
+.cf-rail-status-list { display: flex; flex-direction: column; gap: 9px; }
+.cf-rail-status-item { display: flex; align-items: center; font-size: 12.5px; gap: 8px; }
+.cf-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.cf-dot.ok { background: var(--ok); }
+.cf-rail-label { flex: 1; color: var(--ink-2); }
+.cf-rail-val { font-weight: 550; color: var(--ink); }
+.cf-rail-actions { display: flex; flex-direction: column; gap: 8px; }
+.cf-btn-primary { background: var(--almamater); color: #fff; border: none; border-radius: var(--r); padding: 8px 14px; font-size: 12.5px; font-weight: 550; cursor: pointer; text-align: center; transition: background .15s ease; }
+.cf-btn-primary:hover { background: var(--almamater-strong); }
+.cf-btn-secondary { background: var(--surface); border: 1px solid var(--line); color: var(--ink); border-radius: var(--r); padding: 8px 14px; font-size: 12.5px; font-weight: 500; cursor: pointer; text-align: center; transition: all .15s ease; }
+.cf-btn-secondary:hover { background: var(--surface-2); border-color: var(--line-strong); }
+
+/* Detailed Analytics View (Gambar 2) */
+.cf-detail-topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.cf-back-btn { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 6px 12px; font-size: 12.5px; font-weight: 550; color: var(--ink); cursor: pointer; transition: all .15s ease; }
+.cf-back-btn:hover { background: var(--surface-2); border-color: var(--line-strong); color: var(--almamater); }
+.cf-detail-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cf-select-wrap { display: flex; align-items: center; gap: 6px; }
+.cf-select-label { font-size: 12px; color: var(--ink-3); font-weight: 500; }
+.cf-select { border: 1px solid var(--line); border-radius: var(--r); padding: 5px 10px; background: var(--surface); color: var(--ink); font-size: 12.5px; font-weight: 500; }
+
+.cf-subtabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 16px; overflow-x: auto; }
+.cf-subtab { background: transparent; border: none; border-radius: var(--r); padding: 6px 14px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); cursor: pointer; transition: all .15s ease; white-space: nowrap; }
+.cf-subtab:hover { background: var(--surface-2); color: var(--ink); }
+.cf-subtab.active { background: var(--almamater-soft); color: var(--almamater); font-weight: 600; }
+
+/* Row 1: 5 KPI Cards with Sparklines */
+.cf-kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 16px; }
+@media (max-width: 1200px) { .cf-kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 680px) { .cf-kpi-grid { grid-template-columns: 1fr; } }
+
+.cf-kpi-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between; min-height: 110px; }
+.cf-kpi-label { font-size: 12px; font-weight: 500; color: var(--ink-2); }
+.cf-kpi-val-row { display: flex; align-items: baseline; justify-content: space-between; margin-top: 4px; }
+.cf-kpi-val { font-size: 21px; font-weight: 700; color: var(--ink); letter-spacing: -0.3px; font-variant-numeric: tabular-nums; }
+.cf-kpi-trend { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+.cf-kpi-trend.up { color: var(--ok); background: var(--ok-soft); }
+.cf-kpi-trend.down { color: var(--bad); background: var(--bad-soft); }
+
+/* Row 2 & 3: Two Column Charts */
+.cf-charts-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+@media (max-width: 960px) { .cf-charts-2col { grid-template-columns: 1fr; } }
+
+.cf-chart-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 18px; display: flex; flex-direction: column; }
+.cf-panel-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.cf-panel-title-block { display: flex; flex-direction: column; gap: 4px; }
+.cf-panel-title { font-size: 13.5px; font-weight: 650; color: var(--ink); }
+.cf-panel-legend { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-2); }
+.cf-panel-legend.wrap { flex-wrap: wrap; }
+.cf-legend-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.cf-legend-text { color: var(--ink-2); }
+.cf-panel-group { font-size: 11px; color: var(--ink-3); background: var(--surface-2); padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+
+.cf-chart-body { width: 100%; min-height: 220px; }
+
+/* Custom Floating Tooltip (Persis Cloudflare Tooltip Card di Gambar 2) */
+.cf-tooltip { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12); font-size: 12px; min-width: 170px; z-index: 100; }
+.cf-tt-title { font-weight: 650; color: var(--ink); margin-bottom: 6px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.cf-tt-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+.cf-tt-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.cf-tt-label { color: var(--ink-2); flex: 1; }
+.cf-tt-val { font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
+

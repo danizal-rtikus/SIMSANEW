@@ -146,7 +146,7 @@ export function AisysLog() {
           />
           <Tabs
             value={view}
-            onChange={setView}
+            onChange={(v) => setView(v as 'riwayat' | 'pengguna')}
             items={[
               { value: 'pengguna', label: 'Per pengguna' },
               { value: 'riwayat', label: 'Riwayat' },

@@ -403,7 +403,7 @@ export function CiteDialog({
 
   return (
     <Modal open={open} onClose={onClose} wide title={mode?.kind === 'add' ? 'Tambah rujukan ke pustaka' : mode?.kind === 'edit' ? 'Ubah sitasi' : 'Sisipkan sitasi'} footer={footer}>
-      <Tabs value={tab} onChange={setTab} items={items} />
+      <Tabs value={tab} onChange={(v) => setTab(v as Tab)} items={items} />
       <div className="nk-cite-body">
         {tab === 'pustaka' && (
           <>
