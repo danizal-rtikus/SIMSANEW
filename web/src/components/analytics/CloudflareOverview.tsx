@@ -284,7 +284,7 @@ export function CloudflareOverview({
               <div className="cf-rail-status-item">
                 <span className="cf-dot ok" />
                 <span className="cf-rail-label">Engine AISYS AI</span>
-                <span className="cf-rail-val">DeepSeek v4</span>
+                <span className="cf-rail-val">Aktif</span>
               </div>
               <div className="cf-rail-status-item">
                 <span className="cf-dot ok" />
@@ -300,6 +300,9 @@ export function CloudflareOverview({
             <div className="cf-rail-actions">
               <button className="cf-btn-primary" onClick={() => onDrillDown()}>
                 Buka Analisis Lengkap
+              </button>
+              <button className="cf-btn-secondary" onClick={() => window.print()} title="Cetak laporan dashboard saat ini">
+                Cetak Laporan
               </button>
               {onOpenMonitoring && (
                 <button className="cf-btn-secondary" onClick={onOpenMonitoring}>

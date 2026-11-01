@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   AreaChart,
   Area,
@@ -51,6 +51,25 @@ export function CloudflareDetailedAnalytics({
 }: CloudflareDetailedAnalyticsProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'bimbingan' | 'tahapan' | 'kelulusan'>('all');
   const [timeRange, setTimeRange] = useState('semester');
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    }
+    if (moreMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [moreMenuOpen]);
+
+  const selectedProdiObj = prodiList.find((p) => p.id === selectedProdi);
+  const prodiLabel = selectedProdi === 'all' ? 'Semua Program Studi' : selectedProdiObj ? `${selectedProdiObj.nama} (${selectedProdiObj.kode})` : selectedProdi;
 
   // Mini Sparkline component untuk 5 KPI Cards di Baris 1
   const renderKpiSparkline = (data: SparklinePoint[], color: string) => (
@@ -81,6 +100,24 @@ export function CloudflareDetailedAnalytics({
 
   return (
     <div className="cf-container">
+      {/* Header Resmi Khusus Mode Cetak (window.print) */}
+      <div className="cf-print-header">
+        <div className="cf-print-header-content">
+          <div className="cf-print-brand">
+            <span className="cf-print-logo-mark">S</span>
+            <div>
+              <div className="cf-print-title">SIMSA Academic Analytics Report</div>
+              <div className="cf-print-sub">Sistem Informasi Manajemen Studi Akhir &bull; STIKOM Yos Sudarso</div>
+            </div>
+          </div>
+          <div className="cf-print-meta-box">
+            <div><strong>Cakupan:</strong> {prodiLabel}</div>
+            <div><strong>Periode:</strong> Semester 2026/2027 Ganjil</div>
+            <div><strong>Waktu Cetak:</strong> {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          </div>
+        </div>
+      </div>
+
       {/* Top Breadcrumb & Navigation */}
       <div className="cf-detail-topbar">
         <button className="cf-back-btn" onClick={onBackToOverview}>
@@ -117,32 +154,79 @@ export function CloudflareDetailedAnalytics({
         </div>
       </div>
 
-      {/* Sub-Tab Navigation Bar (Persis Requests, Visitors, Performance...) */}
-      <div className="cf-subtabs">
-        <button
-          className={`cf-subtab ${activeTab === 'all' ? 'active' : ''}`}
-          onClick={() => setActiveTab('all')}
-        >
-          Semua Metrik
-        </button>
-        <button
-          className={`cf-subtab ${activeTab === 'bimbingan' ? 'active' : ''}`}
-          onClick={() => setActiveTab('bimbingan')}
-        >
-          Aktivitas Bimbingan
-        </button>
-        <button
-          className={`cf-subtab ${activeTab === 'tahapan' ? 'active' : ''}`}
-          onClick={() => setActiveTab('tahapan')}
-        >
-          Sebaran Tahap & EWS
-        </button>
-        <button
-          className={`cf-subtab ${activeTab === 'kelulusan' ? 'active' : ''}`}
-          onClick={() => setActiveTab('kelulusan')}
-        >
-          Kelulusan & Masa Studi
-        </button>
+      {/* Sub-Tab Navigation Bar & Action Rail (Persis Cloudflare Header di Gambar 1) */}
+      <div className="cf-subtabs-row">
+        <div className="cf-subtabs">
+          <button
+            className={`cf-subtab ${activeTab === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveTab('all')}
+          >
+            Semua Metrik
+          </button>
+          <button
+            className={`cf-subtab ${activeTab === 'bimbingan' ? 'active' : ''}`}
+            onClick={() => setActiveTab('bimbingan')}
+          >
+            Aktivitas Bimbingan
+          </button>
+          <button
+            className={`cf-subtab ${activeTab === 'tahapan' ? 'active' : ''}`}
+            onClick={() => setActiveTab('tahapan')}
+          >
+            Sebaran Tahap & EWS
+          </button>
+          <button
+            className={`cf-subtab ${activeTab === 'kelulusan' ? 'active' : ''}`}
+            onClick={() => setActiveTab('kelulusan')}
+          >
+            Kelulusan & Masa Studi
+          </button>
+        </div>
+
+        <div className="cf-subtabs-actions">
+          <div className="cf-subtabs-pill">
+            <span className="cf-pill-dot" />
+            <span>2026/2027 Ganjil</span>
+          </div>
+          <div className="cf-more-menu-wrap" ref={menuRef}>
+            <button
+              className="cf-more-btn"
+              onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+              title="Opsi Laporan"
+              aria-label="Opsi Laporan"
+            >
+              &bull;&bull;&bull;
+            </button>
+            {moreMenuOpen && (
+              <div className="cf-more-dropdown">
+                <button
+                  className="cf-more-dropdown-item"
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    window.print();
+                  }}
+                >
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{ marginRight: 4 }}
+                  >
+                    <polyline points="6 9 6 2 18 2 18 9" />
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                    <rect x="6" y="14" width="12" height="8" />
+                  </svg>
+                  Print report
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ===================================================================
