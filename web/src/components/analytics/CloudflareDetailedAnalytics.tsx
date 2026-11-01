@@ -100,20 +100,19 @@ export function CloudflareDetailedAnalytics({
 
   return (
     <div className="cf-container">
-      {/* Header Resmi Khusus Mode Cetak (window.print) */}
+      {/* Header Resmi Khusus Mode Cetak (window.print - persis Cloudflare) */}
       <div className="cf-print-header">
         <div className="cf-print-header-content">
-          <div className="cf-print-brand">
-            <span className="cf-print-logo-mark">S</span>
-            <div>
-              <div className="cf-print-title">SIMSA Academic Analytics Report</div>
-              <div className="cf-print-sub">Sistem Informasi Manajemen Studi Akhir &bull; STIKOM Yos Sudarso</div>
-            </div>
+          <div>
+            <h1 className="cf-print-main-title">Analytics</h1>
+            <p className="cf-print-sub-title">Data aktivitas studi akhir &bull; STIKOM Yos Sudarso</p>
+            <p className="cf-print-meta-line">
+              Semester 2026/2027 Ganjil &bull; Cakupan: {prodiLabel} &bull; Dicetak: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} WIB
+            </p>
           </div>
-          <div className="cf-print-meta-box">
-            <div><strong>Cakupan:</strong> {prodiLabel}</div>
-            <div><strong>Periode:</strong> Semester 2026/2027 Ganjil</div>
-            <div><strong>Waktu Cetak:</strong> {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          <div className="cf-print-logo-box">
+            <span className="cf-print-logo-mark">S</span>
+            <span className="cf-print-logo-text">SIMSA ANALYTICS</span>
           </div>
         </div>
       </div>

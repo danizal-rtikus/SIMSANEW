@@ -705,7 +705,7 @@ function AdminHome() {
   const d = st.data!;
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
+      <div className="admin-dashboard-switch-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, borderBottom: '1px solid var(--line)', paddingBottom: 12 }}>
         <div style={{ display: 'inline-flex', border: '1px solid var(--line)', borderRadius: 'var(--r)', background: 'var(--surface)', padding: 2 }}>
           <button
             className={`cf-time-pill ${adminTab === 'analytics' ? 'active' : ''}`}
